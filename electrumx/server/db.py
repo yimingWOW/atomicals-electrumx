@@ -1312,12 +1312,16 @@ class DB:
     # In the case of FTs, there can be an unbounded nu mber of maximum active locations (one for each UTXO for all holders)
     # This makees it easy to get all top holders and locations of the token to audit the supply
     async def populate_extended_location_atomical_info(self, atomical_id, atomical):
-        self.logger.info(f'populate_extended_location_atomical_info {atomical_id}')
+        self.logger.info(f'populate_ext ended_location_atomical_info {atomical_id}')
         def query_location():
-            location_info = []
+            locations = []
             atomical_active_location_key_prefix = b'a' + atomical_id
+            limit = 100
+            counter = 0
             for atomical_active_location_key, atomical_active_location_value in self.utxo_db.iterator(prefix=atomical_active_location_key_prefix):
-                self.logger.info(f'populate_extended_location_atomical_info with value {atomical_id} {atomical_active_location_value}')
+                # self.logger.info(f'populate_extended_location_atomical_info with value {atomical_id} {atomical_active_location_value}')
+                if counter >= limit:
+                    break 
                 if atomical_active_location_value:
                     location = atomical_active_location_key[1 + ATOMICAL_ID_LEN : 1 + ATOMICAL_ID_LEN + ATOMICAL_ID_LEN]
                     atomical_output_script_key = b'po' + location
@@ -1331,7 +1335,7 @@ class DB:
                     txnum_padding = bytes(8-TXNUM_LEN)
                     tx_num_padded, = unpack_le_uint64(tx_numb + txnum_padding)
                     atomicals_at_location = self.get_atomicals_by_location(location)
-                    location_info.append({
+                    locations.append({
                         'location': location_id_bytes_to_compact(location),
                         'txid': hash_to_hex_str(location_tx_hash),
                         'index': atomical_location_idx,
@@ -1341,9 +1345,13 @@ class DB:
                         'atomicals_at_location': atomicals_at_location,
                         'tx_num': tx_num_padded
                     })
+                counter += 1 
+
             # Sort by most recent transactions first
             location_info.sort(key=lambda x: x['tx_num'], reverse=True)
-            atomical['location_info'] = location_info 
+            atomical['location_info'] = {
+                'locations': locations 
+            }
             self.logger.info(f'populate_extended_location_atomical_info atomical{atomical}')
             return atomical
         return await run_in_thread(query_location)
