@@ -1267,7 +1267,11 @@ class DB:
                 'value': last_value
             }
         return {
-            'location_info': location_info,
+            'location_info': {
+                'locations': [
+                    location_info
+                ]
+            },
             'atomicals': atomicals_at_location
         }
     # Get the atomicals at a specific utxo
