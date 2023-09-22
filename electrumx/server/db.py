@@ -1348,7 +1348,7 @@ class DB:
                 counter += 1 
 
             # Sort by most recent transactions first
-            location_info.sort(key=lambda x: x['tx_num'], reverse=True)
+            locations.sort(key=lambda x: x['tx_num'], reverse=True)
             atomical['location_info'] = {
                 'locations': locations 
             }
