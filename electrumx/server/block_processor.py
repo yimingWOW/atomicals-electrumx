@@ -1534,17 +1534,17 @@ class BlockProcessor:
 
     # Get the atomical details base info CACHED wrapper
     async def get_base_mint_info_rpc_format_by_atomical_id(self, atomical_id):
-        atomical_result = None
-        try:
-            atomical_result = self.atomicals_rpc_format_cache[atomical_id]
-        except KeyError:
-            atomical_result = await self.get_base_mint_info_by_atomical_id_async(atomical_id)
-            # format for the wire format
-            if not atomical_result:
-                return None
-            convert_db_mint_info_to_rpc_mint_info_format(self.coin.header_hash, atomical_result)
-            self.populate_extended_field_summary_atomical_info(atomical_id, atomical_result)
-            self.atomicals_rpc_format_cache[atomical_id] = atomical_result
+        # atomical_result = None
+        # try:
+        #    atomical_result = self.atomicals_rpc_format_cache[atomical_id]
+        # except KeyError:
+        atomical_result = await self.get_base_mint_info_by_atomical_id_async(atomical_id)
+        # format for the wire format
+        if not atomical_result:
+            return None
+        convert_db_mint_info_to_rpc_mint_info_format(self.coin.header_hash, atomical_result)
+        self.populate_extended_field_summary_atomical_info(atomical_id, atomical_result)
+        #     self.atomicals_rpc_format_cache[atomical_id] = atomical_result
         return atomical_result 
 
     # Get the raw stored mint info in the db
