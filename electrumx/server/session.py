@@ -1284,7 +1284,7 @@ class ElectrumX(SessionBase):
 
         list_hashes = {}
         ret['atomicals_block_hashes'] = {}
-        ret['atomicals_block_hashes'][db_height] = lastblock
+        # ret['atomicals_block_hashes'][db_height] = last_block_hash
         for i in range(atomical_hash_count):
             next_db_height = db_height - i
             nextblockhash = self.db.get_atomicals_block_hash(next_db_height)
