@@ -1322,6 +1322,7 @@ class DB:
             atomical_active_location_key_prefix = b'a' + atomical_id
             limit = 100
             counter = 0
+            total_count = 0
             for atomical_active_location_key, atomical_active_location_value in self.utxo_db.iterator(prefix=atomical_active_location_key_prefix):
                 # self.logger.info(f'populate_extended_location_atomical_info with value {atomical_id} {atomical_active_location_value}')
                 if counter >= limit:
