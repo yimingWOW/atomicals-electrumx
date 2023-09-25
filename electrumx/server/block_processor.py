@@ -1533,7 +1533,7 @@ class BlockProcessor:
         return atomical 
 
     # Get the atomical details base info CACHED wrapper
-    todo here
+    # todo here
     async def get_base_mint_info_rpc_format_by_atomical_id(self, atomical_id):
         # atomical_result = None
         # try:
