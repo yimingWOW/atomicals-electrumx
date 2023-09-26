@@ -1349,7 +1349,7 @@ class ElectrumX(SessionBase):
         return {'global': await self.get_summary_info(), 'result': await self.atomical_id_get(compact_atomical_id)} 
 
     async def atomicals_dump_i(self):
-        await self.db.dump_i()
+        self.db.dump_i()
         return {'result': True} 
 
     async def atomicals_get_dft_info(self, compact_atomical_id_or_atomical_number):
