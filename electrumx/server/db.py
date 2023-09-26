@@ -1364,10 +1364,12 @@ class DB:
     def dump_i(self):
         i_prefix = b'i'
         # Print sorted highscores print to file
+        arr = []
         file = open('i_prefix.txt', 'w') #write to file
         for location_key, location_result_value in self.utxo_db.iterator(prefix=i_prefix):
-            file.write(location_key.hex() + '-' + location_result_value.hex())
-            #atomicals_at_location.append(location_key[ 1 + ATOMICAL_ID_LEN : 1 + ATOMICAL_ID_LEN + ATOMICAL_ID_LEN])
+            item.append(location_key.hex() + '-' + location_result_value.hex())
+        for item in arr:
+            file.write(item)
         file.close() #close file
 
     # Populate the latest state of an atomical for a path
