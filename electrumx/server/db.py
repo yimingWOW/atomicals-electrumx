@@ -1366,19 +1366,23 @@ class DB:
         # Print sorted highscores print to file
         arr = []
         arrlocs = []
+       
         file = open('/home/ubuntu/i_prefix.txt', 'w') #write to file
         for location_key, location_result_value in self.utxo_db.iterator(prefix=i_prefix):
             arr.append(location_key.hex() + '-' + location_result_value.hex())
             arrlocs.append(location_key)
         for item in arr:
             file.write(item + '\n')
+            
         file.close() #close file
 
         filelocs = open('/home/ubuntu/i_prefix_locs.txt', 'w') #write to file
+        counter = 0
         for item in arrlocs:
             atomid = item[ 1 + ATOMICAL_ID_LEN : 1 + ATOMICAL_ID_LEN + ATOMICAL_ID_LEN]
             locid = item[ 1 : 1 + ATOMICAL_ID_LEN]
-            filelocs.write('locfirst:' + location_id_bytes_to_compact(atomid) + ' for ' +  location_id_bytes_to_compact(locid) + '\n')
+            filelocs.write(str(counter) + ': ' + ' locfirst:' + location_id_bytes_to_compact(atomid) + ' for ' +  location_id_bytes_to_compact(locid) + '\n')
+            counter += 1
         filelocs.close() #close file
 
         gi_prefix = b'gi'
@@ -1404,10 +1408,12 @@ class DB:
         afile.close() #close file
 
         afilelocs = open('/home/ubuntu/a_prefix_locs.txt', 'w') #write to file
+        counter = 0
         for item in arrlocs:
             locid = item[ 1 + ATOMICAL_ID_LEN : 1 + ATOMICAL_ID_LEN + ATOMICAL_ID_LEN]
             atomid = item[ 1 : 1 + ATOMICAL_ID_LEN]
-            afilelocs.write('atomfirst: ' + location_id_bytes_to_compact(atomid) + ' @ ' +  location_id_bytes_to_compact(locid) + '\n')
+            afilelocs.write(str(counter) + ': ' + ' atomfirst: ' + location_id_bytes_to_compact(atomid) + ' @ ' +  location_id_bytes_to_compact(locid) + '\n')
+            counter += 1
         afilelocs.close() #close file
 
     # Populate the latest state of an atomical for a path
