@@ -1348,6 +1348,10 @@ class ElectrumX(SessionBase):
         compact_atomical_id = self.atomical_resolve_id(compact_atomical_id_or_atomical_number)
         return {'global': await self.get_summary_info(), 'result': await self.atomical_id_get(compact_atomical_id)} 
 
+    async def atomicals_dump_i(self):
+        await self.db.dump_i()
+        return {'result': True} 
+
     async def atomicals_get_dft_info(self, compact_atomical_id_or_atomical_number):
         compact_atomical_id = self.atomical_resolve_id(compact_atomical_id_or_atomical_number)
         return {'global': await self.get_summary_info(), 'result': await self.atomical_id_get_dft_info(compact_atomical_id)} 
@@ -2144,6 +2148,7 @@ class ElectrumX(SessionBase):
             # The Atomicals era has begun
             'blockchain.atomicals.listscripthash': self.atomicals_listscripthash,
             'blockchain.atomicals.list': self.atomicals_list,
+            'blockchain.atomicals.dump_i': self.atomicals_dump_i,
             'blockchain.atomicals.at_location': self.atomicals_at_location,
             'blockchain.atomicals.get_location': self.atomicals_get_location,
             'blockchain.atomicals.get': self.atomicals_get,

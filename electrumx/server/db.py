@@ -1361,6 +1361,15 @@ class DB:
             return atomical
         return await run_in_thread(query_location)
 
+    def dump_i(self):
+        i_prefix = b'i'
+        # Print sorted highscores print to file
+        file = open('i_prefix.txt', 'w') #write to file
+        for location_key, location_result_value in self.utxo_db.iterator(prefix=i_prefix):
+            file.write(location_key.hex() + '-' + location_result_value.hex())
+            #atomicals_at_location.append(location_key[ 1 + ATOMICAL_ID_LEN : 1 + ATOMICAL_ID_LEN + ATOMICAL_ID_LEN])
+        file.close() #close file
+
     # Populate the latest state of an atomical for a path
     def get_mod_state_path_latest(self, atomical_id, path, Verbose=False):
         # check if a modify element is still locked according to the field lock map
