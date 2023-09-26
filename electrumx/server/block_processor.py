@@ -1888,6 +1888,16 @@ class BlockProcessor:
             self.logger.info(f'create_or_delete_decentralized_mint_outputs found premature mint operation in {hash_to_hex_str(tx_hash)} for {ticker} in {height} before {mint_height}. Ignoring...')
             return None
 
+        commit_txid = atomicals_operations_found_at_inputs['commit_txid']
+        commit_tx_num, commit_tx_height = self.get_tx_num_height_from_tx_hash(commit_txid)
+        if not commit_tx_num:
+            self.logger.info(f'create_or_delete_decentralized_mint_output: commit_txid not found for distmint reveal_tx {hash_to_hex_str(commit_txid)}. Skipping...')
+            return None
+        if commit_tx_height < mint_height:
+            raise IndexError('commit tx violation')
+            self.logger.info(f'create_or_delete_decentralized_mint_output: commit_tx_height={commit_tx_height} is less than ATOMICALS_ACTIVATION_HEIGHT. Skipping...')
+            return None
+
         expected_output_index = 0
         output_idx_le = pack_le_uint32(expected_output_index) 
         location = tx_hash + output_idx_le
