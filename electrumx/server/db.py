@@ -1372,6 +1372,13 @@ class DB:
             file.write(item + '\n')
         file.close() #close file
 
+        filelocs = open('/home/ubuntu/i_prefix_locs.txt', 'w') #write to file
+        for item in arr:
+            atomid = [ 1 + ATOMICAL_ID_LEN : 1 + ATOMICAL_ID_LEN + ATOMICAL_ID_LEN]
+            locid = [ 1 : 1 + ATOMICAL_ID_LEN]
+            filelocs.write('locfirst:' + location_id_bytes_to_compact(atomid) + ' for ' +  location_id_bytes_to_compact(locid) + '\n')
+        filelocs.close() #close file
+
         gi_prefix = b'gi'
         # Print sorted highscores print to file
         arr = []
@@ -1391,6 +1398,13 @@ class DB:
         for item in arr:
             afile.write(item + '\n')
         afile.close() #close file
+
+        afilelocs = open('/home/ubuntu/a_prefix_locs.txt', 'w') #write to file
+        for item in arr:
+            locid = [ 1 + ATOMICAL_ID_LEN : 1 + ATOMICAL_ID_LEN + ATOMICAL_ID_LEN]
+            atomid = [ 1 : 1 + ATOMICAL_ID_LEN]
+            afilelocs.write('atomfirst: ' + location_id_bytes_to_compact(atomid) + ' @ ' +  location_id_bytes_to_compact(locid) + '\n')
+        afilelocs.close() #close file
 
     # Populate the latest state of an atomical for a path
     def get_mod_state_path_latest(self, atomical_id, path, Verbose=False):
