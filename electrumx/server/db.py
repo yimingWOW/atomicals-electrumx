@@ -1394,7 +1394,7 @@ class DB:
         gi_prefix = b'a'
         # Print sorted highscores print to file
         arr = []
-         arrlocs = []
+        arrlocs = []
         afile = open('/home/ubuntu/a_prefix.txt', 'w') #write to file
         for location_key, location_result_value in self.utxo_db.iterator(prefix=i_prefix):
             arr.append(location_key.hex() + '-' + location_result_value.hex())
