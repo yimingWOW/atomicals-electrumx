@@ -1367,7 +1367,7 @@ class DB:
         arr = []
         file = open('i_prefix.txt', 'w') #write to file
         for location_key, location_result_value in self.utxo_db.iterator(prefix=i_prefix):
-            item.append(location_key.hex() + '-' + location_result_value.hex())
+            arr.append(location_key.hex() + '-' + location_result_value.hex())
         for item in arr:
             file.write(item)
         file.close() #close file
