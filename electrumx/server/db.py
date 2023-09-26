@@ -1369,7 +1369,7 @@ class DB:
         for location_key, location_result_value in self.utxo_db.iterator(prefix=i_prefix):
             arr.append(location_key.hex() + '-' + location_result_value.hex())
         for item in arr:
-            file.write(item)
+            file.write(item + '\n')
         file.close() #close file
 
     # Populate the latest state of an atomical for a path
