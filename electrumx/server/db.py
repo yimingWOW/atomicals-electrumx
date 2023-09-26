@@ -1376,8 +1376,8 @@ class DB:
 
         filelocs = open('/home/ubuntu/i_prefix_locs.txt', 'w') #write to file
         for item in arrlocs:
-            atomid = [ 1 + ATOMICAL_ID_LEN : 1 + ATOMICAL_ID_LEN + ATOMICAL_ID_LEN]
-            locid = [ 1 : 1 + ATOMICAL_ID_LEN]
+            atomid = item[ 1 + ATOMICAL_ID_LEN : 1 + ATOMICAL_ID_LEN + ATOMICAL_ID_LEN]
+            locid = item[ 1 : 1 + ATOMICAL_ID_LEN]
             filelocs.write('locfirst:' + location_id_bytes_to_compact(atomid) + ' for ' +  location_id_bytes_to_compact(locid) + '\n')
         filelocs.close() #close file
 
@@ -1405,8 +1405,8 @@ class DB:
 
         afilelocs = open('/home/ubuntu/a_prefix_locs.txt', 'w') #write to file
         for item in arrlocs:
-            locid = [ 1 + ATOMICAL_ID_LEN : 1 + ATOMICAL_ID_LEN + ATOMICAL_ID_LEN]
-            atomid = [ 1 : 1 + ATOMICAL_ID_LEN]
+            locid = item[ 1 + ATOMICAL_ID_LEN : 1 + ATOMICAL_ID_LEN + ATOMICAL_ID_LEN]
+            atomid = item[ 1 : 1 + ATOMICAL_ID_LEN]
             afilelocs.write('atomfirst: ' + location_id_bytes_to_compact(atomid) + ' @ ' +  location_id_bytes_to_compact(locid) + '\n')
         afilelocs.close() #close file
 
