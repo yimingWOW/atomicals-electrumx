@@ -1365,15 +1365,17 @@ class DB:
         i_prefix = b'i'
         # Print sorted highscores print to file
         arr = []
+        arrlocs = []
         file = open('/home/ubuntu/i_prefix.txt', 'w') #write to file
         for location_key, location_result_value in self.utxo_db.iterator(prefix=i_prefix):
             arr.append(location_key.hex() + '-' + location_result_value.hex())
+            arrlocs.append(location_key)
         for item in arr:
             file.write(item + '\n')
         file.close() #close file
 
         filelocs = open('/home/ubuntu/i_prefix_locs.txt', 'w') #write to file
-        for item in arr:
+        for item in arrlocs:
             atomid = [ 1 + ATOMICAL_ID_LEN : 1 + ATOMICAL_ID_LEN + ATOMICAL_ID_LEN]
             locid = [ 1 : 1 + ATOMICAL_ID_LEN]
             filelocs.write('locfirst:' + location_id_bytes_to_compact(atomid) + ' for ' +  location_id_bytes_to_compact(locid) + '\n')
@@ -1392,15 +1394,17 @@ class DB:
         gi_prefix = b'a'
         # Print sorted highscores print to file
         arr = []
+         arrlocs = []
         afile = open('/home/ubuntu/a_prefix.txt', 'w') #write to file
         for location_key, location_result_value in self.utxo_db.iterator(prefix=i_prefix):
             arr.append(location_key.hex() + '-' + location_result_value.hex())
+            arrlocs.append(location_key)
         for item in arr:
             afile.write(item + '\n')
         afile.close() #close file
 
         afilelocs = open('/home/ubuntu/a_prefix_locs.txt', 'w') #write to file
-        for item in arr:
+        for item in arrlocs:
             locid = [ 1 + ATOMICAL_ID_LEN : 1 + ATOMICAL_ID_LEN + ATOMICAL_ID_LEN]
             atomid = [ 1 : 1 + ATOMICAL_ID_LEN]
             afilelocs.write('atomfirst: ' + location_id_bytes_to_compact(atomid) + ' @ ' +  location_id_bytes_to_compact(locid) + '\n')
