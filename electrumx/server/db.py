@@ -1372,6 +1372,26 @@ class DB:
             file.write(item + '\n')
         file.close() #close file
 
+        gi_prefix = b'gi'
+        # Print sorted highscores print to file
+        arr = []
+        gfile = open('/home/ubuntu/gi_prefix.txt', 'w') #write to file
+        for location_key, location_result_value in self.utxo_db.iterator(prefix=i_prefix):
+            arr.append(location_key.hex() + '-' + location_result_value.hex())
+        for item in arr:
+            gfile.write(item + '\n')
+        gfile.close() #close file
+
+        gi_prefix = b'a'
+        # Print sorted highscores print to file
+        arr = []
+        afile = open('/home/ubuntu/a_prefix.txt', 'w') #write to file
+        for location_key, location_result_value in self.utxo_db.iterator(prefix=i_prefix):
+            arr.append(location_key.hex() + '-' + location_result_value.hex())
+        for item in arr:
+            afile.write(item + '\n')
+        afile.close() #close file
+
     # Populate the latest state of an atomical for a path
     def get_mod_state_path_latest(self, atomical_id, path, Verbose=False):
         # check if a modify element is still locked according to the field lock map
