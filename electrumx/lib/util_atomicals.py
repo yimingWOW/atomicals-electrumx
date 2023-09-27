@@ -1163,6 +1163,74 @@ def validate_subrealm_rules_outputs_format(outputs):
             print_subrealm_calculate_log(f'validate_subrealm_rules_outputs_format: expected output script is not a valid hex string')
             return False # Reject if one of the payment output script is not a valid hex  
     return True
+
+# Validate the rules array data for subrealm mints
+def validate_rules(rules):
+    if not rules:
+        print_subrealm_calculate_log(f'rules not found')
+        return None # Reject if no rules were provided
+    # There is a path rules that exists
+    if not isinstance(rules, list):
+        print_subrealm_calculate_log(f'value is not a list')
+        return None # Reject if the rules is not a list
+    if len(rules) <= 0 or len(rules) > MAX_SUBREALM_RULE_ENTRIES:
+        print_subrealm_calculate_log(f'rules must have between 1 and 100 entries')
+        return None # Reject since the rules list is empty
+    # Now populate the regex price list
+    # Make sure to REJECT the entire rule set if any of the rules entries is invalid in some way
+    # It's better to be strict in validation and reject any subrealm mints until the parent realm owner can fix the problem and make the rules
+    # function as they are intended to function.
+    validated_rules_list = []
+    for rule_set_entry in rules: # will not be empty since it is checked above
+        # Ensure that the price entry is a list (pattern, price, output)
+        if not isinstance(rule_set_entry, dict):
+            print_subrealm_calculate_log(f'rule_set_entry is not a dict')
+            return None 
+        # regex is the first pattern that will be checked to match for minting a subrealm
+        regex_pattern = rule_set_entry.get('p')
+
+        if not isinstance(regex_pattern, str):
+            print_subrealm_calculate_log(f'regex pattern is not a string')
+            return None  
+    
+        if len(regex_pattern) > MAX_SUBREALM_RULE_SIZE_LEN or len(regex_pattern) < 1:
+            print_subrealm_calculate_log(f'rule empty or too large')
+            return None # Reject if the rule has more than MAX_SUBREALM_RULE_SIZE_LEN chars
+
+        # Output is the output script that must be paid to mint the subrealm
+        outputs = rule_set_entry.get('o')
+        # If all three are set then it could be valid...
+        if regex_pattern != None and outputs != None:
+            # check for a list of outputs
+            if not isinstance(outputs, dict) or len(outputs.keys()) < 1:
+                print_subrealm_calculate_log(f'outputs is not a dict or is empty')
+                return None # Reject if one of the payment outputs is not a valid list
+
+            if not validate_subrealm_rules_outputs_format(outputs):
+                return None 
+            
+            # Check that regex is a valid regex pattern
+            try:
+                valid_pattern = re.compile(rf"{regex_pattern}")
+                # After all we have finally validated this is a valid price point for minting subrealm...
+                price_point = {
+                    'p': regex_pattern,
+                    'o': outputs
+                }
+                validated_rules_list.append(price_point)
+            except Exception as e: 
+                print_subrealm_calculate_log(f'Regex compile error {e}')
+                return None # Reject if one of the regexe's could not be compiled.
+        else: 
+            print_subrealm_calculate_log(f'list element does not p or o fields')
+            return None  
+    # If we got this far, it means there is a valid rule as of the requested height, return the information
+    return {
+        'rule_set_txid': modpath_item['txid'],
+        'rule_set_height': modpath_item['height'],
+        'rule_valid_from_height': valid_from_height,
+        'rules': validated_rules_list # will not be empty since it is checked above
+    }
     
 # Get the price regex list for a subrealm atomical
 # Returns the most recent value sorted by height descending
@@ -1212,74 +1280,84 @@ def calculate_subrealm_rules_list_as_of_height(height, subrealm_mint_modpath_his
             return None # Reject if there was a programmer error and an incorrect path was encountered (it shouldnt happen since it was passed in to this function)
         # It is at least a dictionary
         rules = modpath_item['data'].get('rules')
-        if not rules:
-            print_subrealm_calculate_log(f'rules not found')
-            return None # Reject if no rules were provided
-        # There is a path rules that exists
-        if not isinstance(rules, list):
-            print_subrealm_calculate_log(f'value is not a list')
-            return None # Reject if the rules is not a list
-        if len(rules) <= 0 or len(rules) > MAX_SUBREALM_RULE_ENTRIES:
-            print_subrealm_calculate_log(f'rules must have between 1 and 100 entries')
-            return None # Reject since the rules list is empty
-        # The subrealms field is an array/list type
-        # Now populate the regex price list
-        # Make sure to REJECT the entire rule set if any of the rules entries is invalid in some way
-        # It's better to be strict in validation and reject any subrealm mints until the parent realm owner can fix the problem and make the rules
-        # function as they are intended to function.
-        regex_price_list = []
-        for regex_price in rules: # will not be empty since it is checked above
-            # Ensure that the price entry is a list (pattern, price, output)
-            if not isinstance(regex_price, dict):
-                print_subrealm_calculate_log(f'regex_price is not a dict')
-                return None 
-            # regex is the first pattern that will be checked to match for minting a subrealm
-            regex_pattern = regex_price.get('p')
-
-            if not isinstance(regex_pattern, str):
-                print_subrealm_calculate_log(f'regex pattern is not a string')
-                return None  
-        
-            if len(regex_pattern) > MAX_SUBREALM_RULE_SIZE_LEN:
-                print_subrealm_calculate_log(f'rule too large')
-                return None # Reject if the rule has more than MAX_SUBREALM_RULE_SIZE_LEN chars
-
-            # Output is the output script that must be paid to mint the subrealm
-            outputs = regex_price.get('o')
-            # If all three are set then it could be valid...
-            if regex_pattern != None and outputs != None:
-                # check for a list of outputs
-                if not isinstance(outputs, dict) or len(outputs.keys()) < 1:
-                    print_subrealm_calculate_log(f'outputs is not a dict or is empty')
-                    return None # Reject if one of the payment outputs is not a valid list
-
-                if not validate_subrealm_rules_outputs_format(outputs):
-                    return None 
-             
-                # Check that regex is a valid regex pattern
-                try:
-                    valid_pattern = re.compile(rf"{regex_pattern}")
-                    # After all we have finally validated this is a valid price point for minting subrealm...
-                    price_point = {
-                        'p': regex_pattern,
-                        'o': outputs
-                    }
-                    regex_price_list.append(price_point)
-                except Exception as e: 
-                    print_subrealm_calculate_log(f'Regex compile error {e}')
-                    return None # Reject if one of the regexe's could not be compiled.
-            else: 
-                print_subrealm_calculate_log(f'list element does not contain valid p, s, or o fields')
-                return None # Reject if there is a field of 'p', 'v', or 'o' missing
-        # If we got this far, it means there is a valid rule as of the requested height, return the information
-        return {
-            'rule_set_txid': modpath_item['txid'],
-            'rule_set_height': modpath_item['height'],
-            'rule_valid_from_height': valid_from_height,
-            'rules': regex_price_list # will not be empty since it is checked above
-        }
+        return validate_rules(rules)
     # Nothing was found or matched, return None
     return None
+
+# Assign the ft quantity basic from the start_out_idx to the end until exhausted
+# Returns the sequence of output indexes that matches until the final one that matched
+# Also returns whether it fit cleanly in (ie: exact with no left overs or under)
+def assign_expected_outputs_basic(atomical_id, ft_value, tx, start_out_idx):
+    # Color the first FT in a predictable manner
+    expected_output_indexes = []
+    remaining_value = ft_value
+    idx_count = 0
+    if start_out_idx >= len(tx.outputs):
+        return False, expected_output_indexes
+    for out_idx, txout in enumerate(tx.outputs): 
+        # Only consider outputs from the starting index
+        if idx_count < start_out_idx:
+            continue
+        # For all remaining outputs attach colors as long as there is adequate remaining_value left to cover the entire output value
+        if txout.value <= remaining_value:
+            expected_output_indexes.append(out_idx)
+            remaining_value -= txout.value
+            if remaining_value == 0:
+                # The token input was fully exhausted cleanly into the outputs
+                return True, expected_output_indexes
+        # Exit case output is greater than what we have in remaining_value
+        else:
+            # There was still some token units left, but the next output was greater than the amount. Therefore we burned the remainder tokens.
+            False, expected_output_indexes
+        idx_count += 1
+    # There was still some token units left, but there were no more outputs to take the quantity. Tokens were burned.
+    return False, expected_output_indexes 
+
+def build_reverse_output_to_atomical_id_map(atomical_id_to_output_index_map):
+    if not atomical_id_to_output_index_map:
+        return {}
+    reverse_mapped = {}
+    for atomical_id, output_idxs_array in atomical_id_to_output_index_map.items():
+        for out_idx in output_idxs_array:
+            reverse_mapped[out_idx] = reverse_mapped.get(out_idx) or {}
+            reverse_mapped[out_idx][atomical_id] = atomical_id
+    return reverse_mapped 
+
+# Calculate the colorings of tokens for utxos
+def calculate_outputs_to_color_for_atomical_ids(ft_atomicals, tx):
+    num_fts = len(ft_atomicals.keys())
+    if num_fts == 0:
+        return {} 
+    atomical_list = []
+    for atomical_id, ft_info in sorted(ft_atomicals.items()):
+        atomical_list.append({
+            'atomical_id': atomical_id,
+            'ft_info': ft_info
+        })
+    next_start_out_idx = 0
+    potential_atomical_ids_to_output_idxs_map = {}
+    non_clean_output_slots = False
+    for item in atomical_list:
+        atomical_id = item['atomical_id']
+        cleanly_assigned, expected_outputs = assign_expected_outputs_basic(atomical_id, item['ft_info']['value'], tx, next_start_out_idx)
+        if cleanly_assigned and len(expected_outputs) > 0:
+            next_start_out_idx = expected_outputs[-1] + 1
+            potential_atomical_ids_to_output_idxs_map[atomical_id] = expected_outputs
+        else:
+            # Erase the potential for safety
+            potential_atomical_ids_to_output_idxs_map = {}
+            non_clean_output_slots = True
+            break
+    # If the output slots did not fit cleanly, then default to just assigning everything from the 0'th output index
+    if non_clean_output_slots:
+        print(f'calculate_outputs_to_color_for_atomical_ids non_clean_output_slots {non_clean_output_slots} {ft_atomicals} ')
+        potential_atomical_ids_to_output_idxs_map = {}
+        for item in atomical_list:
+            atomical_id = item['atomical_id']
+            cleanly_assigned, expected_outputs = assign_expected_outputs_basic(atomical_id, item['ft_info']['value'], tx, 0)
+            potential_atomical_ids_to_output_idxs_map[atomical_id] = expected_outputs
+    else:
+        return potential_atomical_ids_to_output_idxs_map 
 
 # Get the candidate name request status for tickers, containers and realms (not subrealms though)
 # Base Status Values:
