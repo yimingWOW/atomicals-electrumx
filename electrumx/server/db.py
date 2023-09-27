@@ -1368,7 +1368,7 @@ class DB:
         arr = []
         arrlocs = []
        
-        file = open('/home/ubuntu/i_prefix.txt', 'w') #write to file
+        file = open('/home/ubuntu/dbdump/i_prefix.txt', 'w') #write to file
         for location_key, location_result_value in self.utxo_db.iterator(prefix=i_prefix):
             arr.append(location_key.hex() + '-' + location_result_value.hex())
             arrlocs.append(location_key)
@@ -1377,7 +1377,7 @@ class DB:
             
         file.close() #close file
 
-        filelocs = open('/home/ubuntu/i_prefix_locs.txt', 'w') #write to file
+        filelocs = open('/home/ubuntu/dbdump/i_prefix_locs.txt', 'w') #write to file
         counter = 0
         for item in arrlocs:
             atomid = item[ 1 + ATOMICAL_ID_LEN : 1 + ATOMICAL_ID_LEN + ATOMICAL_ID_LEN]
@@ -1389,7 +1389,7 @@ class DB:
         gi_prefix = b'gi'
         # Print sorted highscores print to file
         arr = []
-        gfile = open('/home/ubuntu/gi_prefix.txt', 'w') #write to file
+        gfile = open('/home/ubuntu/dbdump/gi_prefix.txt', 'w') #write to file
         for location_key, location_result_value in self.utxo_db.iterator(prefix=gi_prefix):
             arr.append(location_key.hex() + '-' + location_result_value.hex())
         for item in arr:
@@ -1400,7 +1400,7 @@ class DB:
         # Print sorted highscores print to file
         arr = []
         arrlocs = []
-        afile = open('/home/ubuntu/a_prefix.txt', 'w') #write to file
+        afile = open('/home/ubuntu/dbdump/a_prefix.txt', 'w') #write to file
         for location_key, location_result_value in self.utxo_db.iterator(prefix=a_prefix):
             arr.append(location_key.hex() + '-' + location_result_value.hex())
             arrlocs.append(location_key)
@@ -1408,7 +1408,7 @@ class DB:
             afile.write(item + '\n')
         afile.close() #close file
 
-        afilelocs = open('/home/ubuntu/a_prefix_locs.txt', 'w') #write to file
+        afilelocs = open('/home/ubuntu/dbdump/a_prefix_locs.txt', 'w') #write to file
         counter = 0
         for item in arrlocs:
             locid = item[ 1 + ATOMICAL_ID_LEN : 1 + ATOMICAL_ID_LEN + ATOMICAL_ID_LEN]
@@ -1421,7 +1421,7 @@ class DB:
         # realms
         arr = []
         arrlocs = []
-        realmsfile = open('/home/ubuntu/rlm_prefix.txt', 'w') 
+        realmsfile = open('/home/ubuntu/dbdump/rlm_prefix.txt', 'w') 
         rlm_prefix = b'rlm'
         for the_key, the_value in self.utxo_db.iterator(prefix=rlm_prefix):
             arr.append(the_key.hex() + '-' + the_value.hex())
@@ -1432,7 +1432,7 @@ class DB:
         # subrealms
         arr = []
         arrlocs = []
-        subrealmsfile = open('/home/ubuntu/srlm_prefix.txt', 'w') 
+        subrealmsfile = open('/home/ubuntu/dbdump/srlm_prefix.txt', 'w') 
         srlm_prefix = b'srlm'
         for the_key, the_value in self.utxo_db.iterator(prefix=srlm_prefix):
             arr.append(the_key.hex() + '-' + the_value.hex())
@@ -1443,7 +1443,7 @@ class DB:
         # payments
         arr = []
         arrlocs = []
-        spayfile = open('/home/ubuntu/spay_prefix.txt', 'w') 
+        spayfile = open('/home/ubuntu/dbdump/spay_prefix.txt', 'w') 
         spay_prefix = b'spay'
         for the_key, the_value in self.utxo_db.iterator(prefix=spay_prefix):
             arr.append(the_key.hex() + '-' + the_value.hex())
