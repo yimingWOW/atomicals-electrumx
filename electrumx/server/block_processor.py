@@ -1310,7 +1310,7 @@ class BlockProcessor:
                 atomical_ids_touched.append(atomical_id)
 
         # Handle the FTs for the split case
-        if atomicals_operations_found and atomicals_operations_found.get('op') == 'y' and atomicals_operations_found.get('input_index') == 0 and atomicals_operations_found.get('payload'):  
+        if operations_found_at_inputs and operations_found_at_inputs.get('op') == 'y' and operations_found_at_inputs.get('input_index') == 0 and operations_found_at_inputs.get('payload'):  
             for atomical_id, mint_info in sorted(ft_atomicals.items()):
                 expected_output_indexes = []
                 remaining_value = mint_info['value']
@@ -1321,7 +1321,7 @@ class BlockProcessor:
                 total_amount_to_skip = 0
                 # Uses the compact form of atomical id as the keys for developer convenience
                 compact_atomical_id = location_id_bytes_to_compact(atomical_id)
-                total_amount_to_skip_potential = atomicals_operations_found.get('payload').get(compact_atomical_id)
+                total_amount_to_skip_potential = operations_found_at_inputs.get('payload').get(compact_atomical_id)
                 # Sanity check to ensure it is a non-negative integer
                 if isinstance(total_amount_to_skip_potential, int) and total_amount_to_skip_potential >= 0:
                     total_amount_to_skip = total_amount_to_skip_potential
@@ -1381,7 +1381,7 @@ class BlockProcessor:
                         self.put_atomicals_utxo(location, atomical_id, hashX + scripthash + value_sats + tx_numb)
                     atomical_ids_touched.append(atomical_id)
                     total_amount_to_skip += mint_info['value']
-                    
+
         return atomical_ids_touched
     
     # Create or delete data that was found at the location
