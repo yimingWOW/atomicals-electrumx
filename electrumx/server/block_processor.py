@@ -1950,7 +1950,7 @@ class BlockProcessor:
             self.logger.info(f'create_or_delete_decentralized_mint_outputs: Detected invalid mint attempt in {hash_to_hex_str(tx_hash)} for ticker {ticker} which is not a decentralized mint type. Ignoring...')
             return None 
 
-        self.logger.info(f'create_or_delete_decentralized_mint_output: mint_info_for_ticker={mint_info_for_ticker}, potential_dmt_atomical_id={potential_dmt_atomical_id}')
+        #self.logger.info(f'create_or_delete_decentralized_mint_output: mint_info_for_ticker={mint_info_for_ticker}, potential_dmt_atomical_id={potential_dmt_atomical_id}')
         max_mints = mint_info_for_ticker['$max_mints']
         mint_amount = mint_info_for_ticker['$mint_amount']
         mint_height = mint_info_for_ticker['$mint_height']

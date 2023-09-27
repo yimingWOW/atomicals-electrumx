@@ -1382,7 +1382,7 @@ class DB:
         for item in arrlocs:
             atomid = item[ 1 + ATOMICAL_ID_LEN : 1 + ATOMICAL_ID_LEN + ATOMICAL_ID_LEN]
             locid = item[ 1 : 1 + ATOMICAL_ID_LEN]
-            filelocs.write(str(counter) + ': ' + ' locfirst:' + location_id_bytes_to_compact(atomid) + ' for ' +  location_id_bytes_to_compact(locid) + '\n')
+            filelocs.write('locfirst:' + location_id_bytes_to_compact(atomid) + ' for ' +  location_id_bytes_to_compact(locid) + '\n')
             counter += 1
         filelocs.close() #close file
 
@@ -1413,9 +1413,43 @@ class DB:
         for item in arrlocs:
             locid = item[ 1 + ATOMICAL_ID_LEN : 1 + ATOMICAL_ID_LEN + ATOMICAL_ID_LEN]
             atomid = item[ 1 : 1 + ATOMICAL_ID_LEN]
-            afilelocs.write(str(counter) + ': ' + ' atomfirst: ' + location_id_bytes_to_compact(atomid) + ' @ ' +  location_id_bytes_to_compact(locid) + '\n')
+            afilelocs.write('atomfirst: ' + location_id_bytes_to_compact(atomid) + ' @ ' +  location_id_bytes_to_compact(locid) + '\n')
             counter += 1
         afilelocs.close() #close file
+
+
+        # realms
+        arr = []
+        arrlocs = []
+        realmsfile = open('/home/ubuntu/rlm_prefix.txt', 'w') 
+        rlm_prefix = b'rlm'
+        for the_key, the_value in self.utxo_db.iterator(prefix=rlm_prefix):
+            arr.append(the_key.hex() + '-' + the_value.hex())
+        for item in arr:
+            realmsfile.write(item + '\n')
+        realmsfile.close() 
+
+        # subrealms
+        arr = []
+        arrlocs = []
+        subrealmsfile = open('/home/ubuntu/srlm_prefix.txt', 'w') 
+        srlm_prefix = b'srlm'
+        for the_key, the_value in self.utxo_db.iterator(prefix=srlm_prefix):
+            arr.append(the_key.hex() + '-' + the_value.hex())
+        for item in arr:
+            subrealmsfile.write(item + '\n')
+        subrealmsfile.close() 
+
+        # payments
+        arr = []
+        arrlocs = []
+        spayfile = open('/home/ubuntu/spay_prefix.txt', 'w') 
+        spay_prefix = b'spay'
+        for the_key, the_value in self.utxo_db.iterator(prefix=spay_prefix):
+            arr.append(the_key.hex() + '-' + the_value.hex())
+        for item in arr:
+            spayfile.write(item + '\n')
+        spayfile.close() 
 
     # Populate the latest state of an atomical for a path
     def get_mod_state_path_latest(self, atomical_id, path, Verbose=False):
