@@ -1391,7 +1391,7 @@ class DB:
         arr = []
         gfile = open('/home/ubuntu/dbdump/gi_prefix.txt', 'w') #write to file
         for location_key, location_result_value in self.utxo_db.iterator(prefix=gi_prefix):
-            arr.append(location_key.hex() + '-' + location_result_value.hex())
+            arr.append(location_id_bytes_to_compact(location_key[2: 2 + ATOMICAL_ID_LEN]) + '-' + location_id_bytes_to_compact(location_key[2 + ATOMICAL_ID_LEN: 2 + ATOMICAL_ID_LEN + ATOMICAL_ID_LEN]))
         for item in arr:
             gfile.write(item + '\n')
         gfile.close() #close file
