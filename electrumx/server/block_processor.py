@@ -1595,17 +1595,16 @@ class BlockProcessor:
     # Get the atomical details base info CACHED wrapper
     # todo here
     async def get_base_mint_info_rpc_format_by_atomical_id(self, atomical_id):
-        # atomical_result = None
-        # try:
-        #    atomical_result = self.atomicals_rpc_format_cache[atomical_id]
-        # except KeyError:
-        atomical_result = await self.get_base_mint_info_by_atomical_id_async(atomical_id)
-        # format for the wire format
-        if not atomical_result:
-            return None
-        convert_db_mint_info_to_rpc_mint_info_format(self.coin.header_hash, atomical_result)
-        self.populate_extended_field_summary_atomical_info(atomical_id, atomical_result)
-        #     self.atomicals_rpc_format_cache[atomical_id] = atomical_result
+        atomical_result = None
+        try:
+            atomical_result = self.atomicals_rpc_format_cache[atomical_id]
+        except KeyError:
+            atomical_result = await self.get_base_mint_info_by_atomical_id_async(atomical_id)
+            if not atomical_result:
+                return None
+            convert_db_mint_info_to_rpc_mint_info_format(self.coin.header_hash, atomical_result)
+            self.populate_extended_field_summary_atomical_info(atomical_id, atomical_result)
+            self.atomicals_rpc_format_cache[atomical_id] = atomical_result
         return atomical_result 
 
     # Get the atomical details base info CACHED wrapper
@@ -1626,6 +1625,17 @@ class BlockProcessor:
         convert_db_mint_info_to_rpc_mint_info_format(self.coin.header_hash, atomical_result)
         # self.populate_extended_field_summary_atomical_info(atomical_id, atomical_result)
         # self.atomicals_rpc_format_cache[atomical_id] = atomical_result
+        atomical_result['dft_info'] = {
+            'mint_locations': [],
+            'mint_count': 0
+        }
+        atomical_dft_mint_info_key = b'gi' + atomical_id
+        mint_count = 0
+        for location_key, location_result_value in self.db.utxo_db.iterator(prefix=gi_prefix):
+            arr.append(location_key.hex() + '-' + location_result_value.hex())
+            atomical_result['dft_info']['mint_locations'].append(location_key[2 + ATOMICAL_ID_LEN : 2 + ATOMICAL_ID_LEN + ATOMICAL_ID_LEN])
+            mint_count += 1
+        atomical_result['dft_info']['mint_count'] = mint_count
         return atomical_result 
 
     # Get the raw stored mint info in the db
