@@ -1451,6 +1451,18 @@ class DB:
             spayfile.write(item + '\n')
         spayfile.close() 
 
+        # mod
+        arr = []
+        arrlocs = []
+        modfile = open('/home/ubuntu/dbdump/mod_prefix.txt', 'w') 
+        mod_prefix = b'mod'
+        for the_key, the_value in self.utxo_db.iterator(prefix=mod_prefix):
+            arr.append(the_key.hex() + '-' + the_value.hex())
+        for item in arr:
+            modfile.write(item + '\n')
+        modfile.close() 
+
+
     # Populate the latest state of an atomical for a path
     def get_mod_state_path_latest(self, atomical_id, path, Verbose=False):
         # check if a modify element is still locked according to the field lock map
