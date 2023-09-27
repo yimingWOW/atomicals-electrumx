@@ -1934,36 +1934,58 @@ class BlockProcessor:
         dmt_valid, dmt_return_struct = is_valid_dmt_op_format(tx_hash, atomicals_operations_found_at_inputs)
         if not dmt_valid:
             return None
+        
+        sample1 = '107fe94b4b6b776b37a90aacd2c8c7ed0ea21c729fd32c140a34d2fb3ab09b29i0'
+        sample2 = 'f48af0c1528f4e854fc8c7cb61da44c91f024097b5000ff5c372799ff8f01489i0'
+
+        currentlocation = location_id_bytes_to_compact(tx_hash + pack_le_uint32(0))
+
+        if currentlocation == sample1 or currentlocation == sample2:
+            self.logger.info(f'yoshi_create_or_delete_decentralized_mint_output {currentlocation}')
 
         # get the potential dmt (distributed mint) atomical_id from the ticker given
         ticker = dmt_return_struct['$mint_ticker']
         status, potential_dmt_atomical_id, all_entries = self.get_effective_ticker(ticker)
         if status != 'verified':
+            if currentlocation == sample1 or currentlocation == sample2:
+                self.logger.info(f'yoshi_create_or_delete_decentralized_mint_output {currentlocation} SEQ1')
             self.logger.info(f'create_or_delete_decentralized_mint_output: potential_dmt_atomical_id not found for dmt operation in {hash_to_hex_str(tx_hash)}. Attempt was made for invalid ticker mint info. Ignoring...')
             return None 
 
         mint_info_for_ticker = self.get_atomicals_id_mint_info(potential_dmt_atomical_id)
         if not mint_info_for_ticker:
+            if currentlocation == sample1 or currentlocation == sample2:
+                self.logger.info(f'yoshi_create_or_delete_decentralized_mint_output {currentlocation} SEQ2')
             raise IndexError(f'create_or_delete_decentralized_mint_outputs: mint_info_for_ticker not found for expected atomical={atomical_id}')
 
         if mint_info_for_ticker['subtype'] != 'decentralized':
+            if currentlocation == sample1 or currentlocation == sample2:
+                self.logger.info(f'yoshi_create_or_delete_decentralized_mint_output {currentlocation} SEQ3')
             self.logger.info(f'create_or_delete_decentralized_mint_outputs: Detected invalid mint attempt in {hash_to_hex_str(tx_hash)} for ticker {ticker} which is not a decentralized mint type. Ignoring...')
             return None 
 
+        if currentlocation == sample1 or currentlocation == sample2:
+            self.logger.info(f'yoshi_create_or_delete_decentralized_mint_output {currentlocation} SEQ4')
         #self.logger.info(f'create_or_delete_decentralized_mint_output: mint_info_for_ticker={mint_info_for_ticker}, potential_dmt_atomical_id={potential_dmt_atomical_id}')
         max_mints = mint_info_for_ticker['$max_mints']
         mint_amount = mint_info_for_ticker['$mint_amount']
         mint_height = mint_info_for_ticker['$mint_height']
         if height < mint_height:
+            if currentlocation == sample1 or currentlocation == sample2:
+                self.logger.info(f'yoshi_create_or_delete_decentralized_mint_output {currentlocation} SEQ5')
             self.logger.info(f'create_or_delete_decentralized_mint_outputs found premature mint operation in {hash_to_hex_str(tx_hash)} for {ticker} in {height} before {mint_height}. Ignoring...')
             return None
 
         commit_txid = atomicals_operations_found_at_inputs['commit_txid']
         commit_tx_num, commit_tx_height = self.get_tx_num_height_from_tx_hash(commit_txid)
         if not commit_tx_num:
+            if currentlocation == sample1 or currentlocation == sample2:
+                self.logger.info(f'yoshi_create_or_delete_decentralized_mint_output {currentlocation} SEQ6')
             self.logger.info(f'create_or_delete_decentralized_mint_output: commit_txid not found for distmint reveal_tx {hash_to_hex_str(commit_txid)}. Skipping...')
             return None
         if commit_tx_height < mint_height:
+            if currentlocation == sample1 or currentlocation == sample2:
+                self.logger.info(f'yoshi_create_or_delete_decentralized_mint_output {currentlocation} SEQ7')
             raise IndexError('commit tx violation')
             self.logger.info(f'create_or_delete_decentralized_mint_output: commit_tx_height={commit_tx_height} is less than ATOMICALS_ACTIVATION_HEIGHT. Skipping...')
             return None
@@ -1975,59 +1997,90 @@ class BlockProcessor:
         scripthash = double_sha256(txout.pk_script)
         hashX = self.coin.hashX_from_script(txout.pk_script)
         value_sats = pack_le_uint64(txout.value)
-        
+        if currentlocation == sample1 or currentlocation == sample2:
+            self.logger.info(f'yoshi_create_or_delete_decentralized_mint_output {currentlocation} SEQ8')
         # Mint is valid and active if the value is what is expected
         if mint_amount == txout.value:
+            if currentlocation == sample1 or currentlocation == sample2:
+                self.logger.info(f'yoshi_create_or_delete_decentralized_mint_output {currentlocation} SEQ9')
             # Count the number of existing b'gi' entries and ensure it is strictly less than max_mints
             decentralized_mints = self.get_distmints_count_by_atomical_id(potential_dmt_atomical_id)
             if decentralized_mints > max_mints:
+                if currentlocation == sample1 or currentlocation == sample2:
+                    self.logger.info(f'yoshi_create_or_delete_decentralized_mint_output {currentlocation} SEQ10')
                 raise IndexError(f'create_or_delete_decentralized_mint_outputs :Fatal IndexError decentralized_mints > max_mints for {atomical}. Too many mints detected in db')
             if decentralized_mints < max_mints:
+                if currentlocation == sample1 or currentlocation == sample2:
+                    self.logger.info(f'yoshi_create_or_delete_decentralized_mint_output {currentlocation} SEQ11')
                 self.logger.info(f'create_or_delete_decentralized_mint_outputs: found mint request in {hash_to_hex_str(tx_hash)} for {ticker}. Checking for any POW in distributed mint record...')
                 # If this was a POW mint, then validate that the POW is valid
                 mint_pow_commit = mint_info_for_ticker.get('$mint_bitworkc') 
                 mint_pow_reveal = mint_info_for_ticker.get('$mint_bitworkr') 
                 if mint_pow_commit:
+                    if currentlocation == sample1 or currentlocation == sample2:
+                        self.logger.info(f'yoshi_create_or_delete_decentralized_mint_output {currentlocation} SEQ12')
                     # It required commit proof of work
                     commit_txid = atomicals_operations_found_at_inputs['commit_txid']
                     valid_commit_str, bitwork_commit_parts = is_valid_bitwork_string(mint_pow_commit)
                     if not valid_commit_str:
+                        if currentlocation == sample1 or currentlocation == sample2:
+                            self.logger.info(f'yoshi_create_or_delete_decentralized_mint_output {currentlocation} SEQ13')
                         self.logger.info(f'create_or_delete_decentralized_mint_output: not valid_commit_str {hash_to_hex_str(tx_hash)}...')
                         return None
                     mint_bitwork_prefix = bitwork_commit_parts['prefix']
                     mint_bitwork_ext = bitwork_commit_parts['ext']
                     if is_proof_of_work_prefix_match(commit_txid, mint_bitwork_prefix, mint_bitwork_ext):
+                        if currentlocation == sample1 or currentlocation == sample2:
+                            self.logger.info(f'yoshi_create_or_delete_decentralized_mint_output {currentlocation} SEQ14')
                         self.logger.info(f'create_or_delete_decentralized_mint_outputs: has VALID mint_bitworkc {valid_commit_str} for {hash_to_hex_str(commit_txid)} for {ticker}. Continuing to mint...')
                     else:
+                        if currentlocation == sample1 or currentlocation == sample2:
+                            self.logger.info(f'yoshi_create_or_delete_decentralized_mint_output {currentlocation} SEQ15')
                         self.logger.info(f'create_or_delete_decentralized_mint_outputs: has INVALID mint_bitworkc {valid_commit_str} because the pow is invalid for {hash_to_hex_str(commit_txid)} for {ticker}. Skipping invalid mint attempt...')
                         return None
+                if currentlocation == sample1 or currentlocation == sample2:
+                    self.logger.info(f'yoshi_create_or_delete_decentralized_mint_output {currentlocation} SEQ16')
                 if mint_pow_reveal:
+                    if currentlocation == sample1 or currentlocation == sample2:
+                        self.logger.info(f'yoshi_create_or_delete_decentralized_mint_output {currentlocation} SEQ17')
                     # It required reveal proof of work
                     reveal_txid = atomicals_operations_found_at_inputs['reveal_location_txid']
                     valid_reveal_str, bitwork_reveal_parts = is_valid_bitwork_string(mint_pow_reveal)
                     if not valid_reveal_str:
+                        if currentlocation == sample1 or currentlocation == sample2:
+                            self.logger.info(f'yoshi_create_or_delete_decentralized_mint_output {currentlocation} SEQ18')
                         self.logger.info(f'create_or_delete_decentralized_mint_output: not valid_reveal_str {hash_to_hex_str(tx_hash)}...')
                         return None
                     mint_bitwork_prefix = bitwork_reveal_parts['prefix']
                     mint_bitwork_ext = bitwork_reveal_parts['ext']
                     if is_proof_of_work_prefix_match(reveal_txid, mint_bitwork_prefix, mint_bitwork_ext):
+                        if currentlocation == sample1 or currentlocation == sample2:
+                            self.logger.info(f'yoshi_create_or_delete_decentralized_mint_output {currentlocation} SEQ19')
                         self.logger.info(f'create_or_delete_decentralized_mint_outputs: has VALID mint_bitworkr {valid_reveal_str} for {hash_to_hex_str(reveal_txid)} for {ticker}. Continuing to mint...')
                     else:
+                        if currentlocation == sample1 or currentlocation == sample2:
+                            self.logger.info(f'yoshi_create_or_delete_decentralized_mint_output {currentlocation} SEQ20')
                         self.logger.info(f'create_or_delete_decentralized_mint_outputs: has INVALID mint_bitworkr {valid_reveal_str} because the pow is invalid for {hash_to_hex_str(reveal_txid)} for {ticker}. Skipping invalid mint attempt...')
                         return None
                 the_key = b'po' + location
                 if Delete:
+                    if currentlocation == sample1 or currentlocation == sample2:
+                        self.logger.info(f'yoshi_create_or_delete_decentralized_mint_output {currentlocation} SEQ21')
                     atomicals_found_list = self.spend_atomicals_utxo(tx_hash, expected_output_index)
                     assert(len(atomicals_found_list) > 0)
                     self.delete_general_data(the_key)
                     self.delete_decentralized_mint_data(potential_dmt_atomical_id, location)
                     return potential_dmt_atomical_id
                 else:
+                    if currentlocation == sample1 or currentlocation == sample2:
+                        self.logger.info(f'yoshi_create_or_delete_decentralized_mint_output {currentlocation} SEQ22')
                     put_general_data = self.general_data_cache.__setitem__
                     put_general_data(the_key, txout.pk_script)
                     tx_numb = pack_le_uint64(tx_num)[:TXNUM_LEN]
                     self.put_atomicals_utxo(location, potential_dmt_atomical_id, hashX + scripthash + value_sats + tx_numb)
                     self.put_decentralized_mint_data(potential_dmt_atomical_id, location, scripthash + value_sats)
+                    if currentlocation == sample1 or currentlocation == sample2:
+                        self.logger.info(f'yoshi_create_or_delete_decentralized_mint_output {currentlocation} SEQ23')
                     return potential_dmt_atomical_id
                 self.logger.info(f'create_or_delete_decentralized_mint_outputs found valid request in {hash_to_hex_str(tx_hash)} for {ticker}. Granting and creating decentralized mint...')
             else: 
@@ -2035,6 +2088,8 @@ class BlockProcessor:
         else: 
             self.logger.info(f'create_or_delete_decentralized_mint_outputs: found invalid mint operation in {tx_hash} for {ticker} because incorrect txout.value {txout.value} when expected {mint_amount}')
         
+        if currentlocation == sample1 or currentlocation == sample2:
+            self.logger.info(f'yoshi_create_or_delete_decentralized_mint_output {currentlocation} SEQ24FINAL')
         self.logger.info(f'create_or_delete_decentralized_mint_outputs general failure {potential_dmt_atomical_id}')
         return None
 
