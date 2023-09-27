@@ -1309,22 +1309,79 @@ class BlockProcessor:
                     self.put_atomicals_utxo(location, atomical_id, hashX + scripthash + value_sats + tx_numb)
                 atomical_ids_touched.append(atomical_id)
 
-        # Handle the FTs
-        for atomical_id, mint_info in ft_atomicals.items():
-            found_match = False
-            expected_output_indexes = get_expected_output_indexes_of_atomical_ft(mint_info, tx, atomical_id, operations_found_at_inputs) 
-            # For each expected output to be colored, check for state-like updates
-            for expected_output_index in expected_output_indexes:
-                output_idx_le = pack_le_uint32(expected_output_index)
-                location = tx_hash + output_idx_le
-                txout = tx.outputs[expected_output_index]
-                scripthash = double_sha256(txout.pk_script)
-                hashX = self.coin.hashX_from_script(txout.pk_script)
-                value_sats = pack_le_uint64(txout.value)
-                put_general_data(b'po' + location, txout.pk_script)
-                tx_numb = pack_le_uint64(tx_num)[:TXNUM_LEN]
-                self.put_atomicals_utxo(location, atomical_id, hashX + scripthash + value_sats + tx_numb)
-            atomical_ids_touched.append(atomical_id)
+        # Handle the FTs for the split case
+        if atomicals_operations_found and atomicals_operations_found.get('op') == 'y' and atomicals_operations_found.get('input_index') == 0 and atomicals_operations_found.get('payload'):  
+            for atomical_id, mint_info in sorted(ft_atomicals.items()):
+                expected_output_indexes = []
+                remaining_value = mint_info['value']
+                # The FT type has the 'skip' (y) method which allows us to selectively skip a certain total number of token units (satoshis)
+                # before beginning to color the outputs.
+                # Essentially this makes it possible to "split" out multiple FT's located at the same input
+                # If the input at index 0 has the skip operation, then it will apply for the atomical token generally across all inputs and the first output will be skipped
+                total_amount_to_skip = 0
+                # Uses the compact form of atomical id as the keys for developer convenience
+                compact_atomical_id = location_id_bytes_to_compact(atomical_id)
+                total_amount_to_skip_potential = atomicals_operations_found.get('payload').get(compact_atomical_id)
+                # Sanity check to ensure it is a non-negative integer
+                if isinstance(total_amount_to_skip_potential, int) and total_amount_to_skip_potential >= 0:
+                    total_amount_to_skip = total_amount_to_skip_potential
+                total_skipped_so_far = 0
+                for out_idx, txout in enumerate(tx.outputs): 
+                    # If the first output should be skipped and we have not yet done so, then skip/ignore it
+                    if total_amount_to_skip > 0 and total_skipped_so_far < total_amount_to_skip:
+                        total_skipped_so_far += txout.value 
+                        continue 
+                    # For all remaining outputs attach colors as long as there is adequate remaining_value left to cover the entire output value
+                    if txout.value <= remaining_value:
+                        expected_output_indexes.append(out_idx)
+                        remaining_value -= txout.value
+                    else: 
+                        # Since one of the inputs was not less than or equal to the remaining value, then stop assigning outputs. The remaining coins are burned. RIP.
+                        break
+                # For each expected output to be colored, check for state-like updates
+                for expected_output_index in expected_output_indexes:
+                    output_idx_le = pack_le_uint32(expected_output_index)
+                    location = tx_hash + output_idx_le
+                    txout = tx.outputs[expected_output_index]
+                    scripthash = double_sha256(txout.pk_script)
+                    hashX = self.coin.hashX_from_script(txout.pk_script)
+                    value_sats = pack_le_uint64(txout.value)
+                    put_general_data(b'po' + location, txout.pk_script)
+                    tx_numb = pack_le_uint64(tx_num)[:TXNUM_LEN]
+                    self.put_atomicals_utxo(location, atomical_id, hashX + scripthash + value_sats + tx_numb)
+                atomical_ids_touched.append(atomical_id)
+            else:
+                total_amount_to_skip = 0
+                for atomical_id, mint_info in sorted(ft_atomicals.items()):
+                    expected_output_indexes = []
+                    remaining_value = mint_info['value']
+                    total_skipped_so_far = 0
+                    for out_idx, txout in enumerate(tx.outputs): 
+                        # If the first output should be skipped and we have not yet done so, then skip/ignore it
+                        if total_amount_to_skip > 0 and total_skipped_so_far < total_amount_to_skip:
+                            total_skipped_so_far += txout.value 
+                            continue 
+                        # For all remaining outputs attach colors as long as there is adequate remaining_value left to cover the entire output value
+                        if txout.value <= remaining_value:
+                            expected_output_indexes.append(out_idx)
+                            remaining_value -= txout.value
+                        else: 
+                            # Since one of the inputs was not less than or equal to the remaining value, then stop assigning outputs. The remaining coins are burned. RIP.
+                            break
+                    # For each expected output to be colored, check for state-like updates
+                    for expected_output_index in expected_output_indexes:
+                        output_idx_le = pack_le_uint32(expected_output_index)
+                        location = tx_hash + output_idx_le
+                        txout = tx.outputs[expected_output_index]
+                        scripthash = double_sha256(txout.pk_script)
+                        hashX = self.coin.hashX_from_script(txout.pk_script)
+                        value_sats = pack_le_uint64(txout.value)
+                        put_general_data(b'po' + location, txout.pk_script)
+                        tx_numb = pack_le_uint64(tx_num)[:TXNUM_LEN]
+                        self.put_atomicals_utxo(location, atomical_id, hashX + scripthash + value_sats + tx_numb)
+                    atomical_ids_touched.append(atomical_id)
+                    total_amount_to_skip += mint_info['value']
+                    
         return atomical_ids_touched
     
     # Create or delete data that was found at the location
