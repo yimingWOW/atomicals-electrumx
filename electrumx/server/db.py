@@ -1413,10 +1413,9 @@ class DB:
         for item in arrlocs:
             locid = item[ 1 + ATOMICAL_ID_LEN : 1 + ATOMICAL_ID_LEN + ATOMICAL_ID_LEN]
             atomid = item[ 1 : 1 + ATOMICAL_ID_LEN]
-            afilelocs.write('atomfirst: ' + location_id_bytes_to_compact(atomid) + ' @ ' +  location_id_bytes_to_compact(locid) + '\n')
+            # afilelocs.write('atomfirst: ' + location_id_bytes_to_compact(atomid) + ' @ ' +  location_id_bytes_to_compact(locid) + '\n')
             counter += 1
         afilelocs.close() #close file
-
 
         # realms
         arr = []

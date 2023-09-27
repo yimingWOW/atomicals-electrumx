@@ -1631,7 +1631,7 @@ class BlockProcessor:
         }
         atomical_dft_mint_info_key = b'gi' + atomical_id
         mint_count = 0
-        for location_key, location_result_value in self.db.utxo_db.iterator(prefix=gi_prefix):
+        for location_key, location_result_value in self.db.utxo_db.iterator(prefix=atomical_dft_mint_info_key):
             arr.append(location_key.hex() + '-' + location_result_value.hex())
             atomical_result['dft_info']['mint_locations'].append(location_key[2 + ATOMICAL_ID_LEN : 2 + ATOMICAL_ID_LEN + ATOMICAL_ID_LEN])
             mint_count += 1
