@@ -1626,13 +1626,12 @@ class BlockProcessor:
         # self.populate_extended_field_summary_atomical_info(atomical_id, atomical_result)
         # self.atomicals_rpc_format_cache[atomical_id] = atomical_result
         atomical_result['dft_info'] = {
-            'mint_locations': [],
             'mint_count': 0
         }
         atomical_dft_mint_info_key = b'gi' + atomical_id
         mint_count = 0
         for location_key, location_result_value in self.db.utxo_db.iterator(prefix=atomical_dft_mint_info_key):
-            atomical_result['dft_info']['mint_locations'].append(location_key[2 + ATOMICAL_ID_LEN : 2 + ATOMICAL_ID_LEN + ATOMICAL_ID_LEN])
+            # atomical_result['dft_info']['mint_locations'].append(location_key[2 + ATOMICAL_ID_LEN : 2 + ATOMICAL_ID_LEN + ATOMICAL_ID_LEN])
             mint_count += 1
         atomical_result['dft_info']['mint_count'] = mint_count
         return atomical_result 
