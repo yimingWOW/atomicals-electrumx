@@ -1311,6 +1311,8 @@ class BlockProcessor:
 
         # Handle the FTs for the split case
         if operations_found_at_inputs and operations_found_at_inputs.get('op') == 'y' and operations_found_at_inputs.get('input_index') == 0 and operations_found_at_inputs.get('payload'):  
+            self.logger.info(f'split_utxo_ft')
+
             for atomical_id, mint_info in sorted(ft_atomicals.items()):
                 expected_output_indexes = []
                 remaining_value = mint_info['value']
@@ -1351,6 +1353,7 @@ class BlockProcessor:
                     self.put_atomicals_utxo(location, atomical_id, hashX + scripthash + value_sats + tx_numb)
                 atomical_ids_touched.append(atomical_id)
             else:
+                self.logger.info(f'regular_utxo_ft')
                 total_amount_to_skip = 0
                 for atomical_id, mint_info in sorted(ft_atomicals.items()):
                     expected_output_indexes = []
