@@ -843,7 +843,7 @@ class BlockProcessor:
             return unpacked_tx_num, unpacked_height
         return self.db.get_tx_num_height_from_tx_hash(tx_hash)
 
-    def create_or_delete_realm_entry_if_requested(self, mint_info, Delete=False):
+    def create_or_delete_realm_entry_if_requested(self, mint_info, height, Delete=False):
         request_realm = mint_info.get('$request_realm')
         if not request_realm:
             # No name was requested, consider the operation successful noop
@@ -851,7 +851,7 @@ class BlockProcessor:
         if not is_valid_realm_string_name(request_realm):
             return False 
         # Also check that there is no candidates already committed earlier than the current one
-        status, atomical_id, candidates = self.get_effective_realm(request_realm)
+        status, atomical_id, candidates = self.get_effective_realm(request_realm, height)
         for candidate in candidates:
             if candidate['tx_num'] < mint_info['commit_tx_num']:
                 return False
@@ -861,7 +861,7 @@ class BlockProcessor:
             self.put_name_element_template(b'rlm', b'', request_realm, mint_info['commit_tx_num'], mint_info['id'], self.realm_data_cache)
         return True 
     
-    def create_or_delete_container_entry_if_requested(self, mint_info, Delete=False):
+    def create_or_delete_container_entry_if_requested(self, mint_info, height, Delete=False):
         request_container = mint_info.get('$request_container')
         if not request_container:
             # No name was requested, consider the operation successful noop
@@ -871,7 +871,7 @@ class BlockProcessor:
             return False 
         
         # Also check that there is no candidates already committed earlier than the current one
-        status, atomical_id, candidates = self.get_effective_container(request_container)
+        status, atomical_id, candidates = self.get_effective_container(request_container, height)
         for candidate in candidates:
             if candidate['tx_num'] < mint_info['commit_tx_num']:
                 return False
