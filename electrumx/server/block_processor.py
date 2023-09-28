@@ -881,7 +881,7 @@ class BlockProcessor:
             self.put_name_element_template(b'co', b'', request_container, mint_info['commit_tx_num'], mint_info['id'], self.container_data_cache)
         return True 
 
-    def create_or_delete_ticker_entry_if_requested(self, mint_info, Delete=False):
+    def create_or_delete_ticker_entry_if_requested(self, mint_info, height, Delete=False):
         request_ticker = mint_info.get('$request_ticker')
         if not request_ticker:
             # No name was requested, consider the operation successful noop
@@ -892,7 +892,7 @@ class BlockProcessor:
         
         self.logger.info(f'create_or_delete_ticker_entry_if_requested: request_ticker={request_ticker}')
         # Also check that there is no candidates already committed earlier than the current one
-        status, atomical_id, candidates = self.get_effective_ticker(request_ticker)
+        status, atomical_id, candidates = self.get_effective_ticker(request_ticker, height)
         for candidate in candidates:
             candidate_tx_num = candidate['tx_num']
             mint_info_commit_tx_num = mint_info['commit_tx_num']
@@ -906,13 +906,13 @@ class BlockProcessor:
         return True 
  
     # Create the subrealm entry if requested correctly
-    def create_or_delete_subrealm_entry_if_requested(self, mint_info, atomicals_spent_at_inputs, Delete=False): 
+    def create_or_delete_subrealm_entry_if_requested(self, mint_info, atomicals_spent_at_inputs, height, Delete=False): 
         parent_realm_id, initiated_by_parent = self.get_subrealm_parent_realm_info(mint_info, atomicals_spent_at_inputs)
         if parent_realm_id:
             request_subrealm = mint_info.get('$request_subrealm')
             self.logger.info(f'create_or_delete_subrealm_entry_if_requested: request_subrealm={request_subrealm}')
             # Also check that there is no candidates already committed earlier than the current one
-            status, atomical_id, candidates = self.get_effective_subrealm(parent_realm_id, request_subrealm)
+            status, atomical_id, candidates = self.get_effective_subrealm(parent_realm_id, request_subrealm, height)
             if status and status == 'verified':
                 self.logger.info(f'create_or_delete_subrealm_entry_if_requested: verified_already_exists, parent_realm_id {parent_realm_id}, request_subrealm={request_subrealm} ')
                 # Do not attempt to mint subrealm if there is one verified already
@@ -1051,13 +1051,13 @@ class BlockProcessor:
                     return None
 
             # Ensure that the creates are noops or successful
-            if not self.create_or_delete_realm_entry_if_requested(mint_info, Delete):
+            if not self.create_or_delete_realm_entry_if_requested(mint_info, height, Delete):
                 return None
 
-            if not self.create_or_delete_container_entry_if_requested(mint_info, Delete):
+            if not self.create_or_delete_container_entry_if_requested(mint_info, height, Delete):
                 return None
 
-            if not self.create_or_delete_subrealm_entry_if_requested(mint_info, atomicals_spent_at_inputs, Delete):
+            if not self.create_or_delete_subrealm_entry_if_requested(mint_info, atomicals_spent_at_inputs, height, Delete):
                 return None
 
             if not Delete:
@@ -1072,7 +1072,7 @@ class BlockProcessor:
             else: 
                 mint_info['$max_supply'] = txout.value
             
-            if not self.create_or_delete_ticker_entry_if_requested(mint_info, Delete):
+            if not self.create_or_delete_ticker_entry_if_requested(mint_info, height, Delete):
                 return None
             
             if not Delete:
@@ -1473,20 +1473,20 @@ class BlockProcessor:
         return pow_result['pow_commit'] or pow_result['pow_reveal'] 
 
     # Get the effective realm considering cache and database
-    def get_effective_realm(self, realm_name):
-        return self.get_effective_name_template(b'rlm', realm_name, self.realm_data_cache)
+    def get_effective_realm(self, realm_name, height):
+        return self.get_effective_name_template(b'rlm', realm_name, height, self.realm_data_cache)
 
     # Get the effective container considering cache and database
-    def get_effective_container(self, container_name):
-        return self.get_effective_name_template(b'co', container_name, self.container_data_cache)
+    def get_effective_container(self, container_name, height):
+        return self.get_effective_name_template(b'co', container_name, height, self.container_data_cache)
     
     # Get the effective ticker considering cache and database
-    def get_effective_ticker(self, ticker_name):
-        return self.get_effective_name_template(b'tick', ticker_name, self.ticker_data_cache)
+    def get_effective_ticker(self, ticker_name, height):
+        return self.get_effective_name_template(b'tick', ticker_name, height, self.ticker_data_cache)
 
     # Get the effective subrealm
-    def get_effective_subrealm(self, parent_realm_id, subrealm_name):
-        current_height = self.height
+    def get_effective_subrealm(self, parent_realm_id, subrealm_name, height):
+        current_height = height
         db_prefix = b'srlm'
         # Get the effective name entries from the database
         all_entries = []
@@ -1545,8 +1545,8 @@ class BlockProcessor:
         return None, None, all_entries
 
     # Get the effective name for realms, containers, and tickers. Does NOT work for subrealms, use the get_effective_subrealm method directly
-    def get_effective_name_template(self, db_prefix, subject, name_data_cache):
-        current_height = self.height
+    def get_effective_name_template(self, db_prefix, subject, height, name_data_cache):
+        current_height = height
         # Get the effective name entries from the database
         all_entries = []
         # ex: Key: b'rlm' + name bytes + commit_tx_num
@@ -1950,7 +1950,7 @@ class BlockProcessor:
 
         # get the potential dmt (distributed mint) atomical_id from the ticker given
         ticker = dmt_return_struct['$mint_ticker']
-        status, potential_dmt_atomical_id, all_entries = self.get_effective_ticker(ticker)
+        status, potential_dmt_atomical_id, all_entries = self.get_effective_ticker(ticker, height)
         if status != 'verified':
             if currentlocation == sample1 or currentlocation == sample2:
                 self.logger.info(f'yoshi_create_or_delete_decentralized_mint_output {currentlocation} {status} {ticker} func_height={height} SEQ1')
@@ -2385,26 +2385,6 @@ class BlockProcessor:
             self.put_or_delete_sealed(operations_found_at_inputs, atomical_id, location_id, True)
         return hashXs, spent_atomicals
 
-    # Rollback any distributed mints
-    def rollback_decentralized_mint_data(self, tx_hash, operations_found_at_inputs):
-        if not operations_found_at_inputs:
-            return
-        dmt_valid, dmt_return_struct = is_valid_dmt_op_format(tx_hash, operations_found_at_inputs)
-        if dmt_valid: 
-            ticker = dmt_return_struct['$mint_ticker']
-            self.logger.info(f'rollback_decentralized_mint_data: dmt found in tx, tx_hash={hash_to_hex_str(tx_hash)}, ticker={ticker}')
-            # get the potential dmt (distributed mint) atomical_id from the ticker given
-            status, potential_dmt_atomical_id, ticker_entries = self.get_effective_ticker(dmt_return_struct['$mint_ticker'])
-            if status == 'verified':
-                self.logger.info(f'rollback_decentralized_mint_data: potential_dmt_atomical_id is True, tx_hash={hash_to_hex_str(tx_hash)}, ticker={ticker}')
-                output_index_packed = pack_le_uint32(idx)
-                location = tx_hash + output_index_packed
-                self.delete_decentralized_mint_data(potential_dmt_atomical_id, location)
-                # remove the b'a' atomicals entry at the mint location
-                self.delete_general_data(b'a' + potential_dmt_atomical_id + location)
-                # remove the b'i' atomicals entry at the mint location
-                self.delete_general_data(b'i' + location + potential_dmt_atomical_id)
-     
     # Query all the modpath history properties and return them sorted descending by tx_num by default
     # Uses cache and combines it with db results
     def get_mod_path_history(self, parent_atomical_id, path, prefix_key = b'modpath'):
