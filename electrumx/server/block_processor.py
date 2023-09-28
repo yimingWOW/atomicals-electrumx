@@ -1313,7 +1313,6 @@ class BlockProcessor:
         # Handle the FTs for the split case
         if operations_found_at_inputs and operations_found_at_inputs.get('op') == 'y' and operations_found_at_inputs.get('input_index') == 0 and operations_found_at_inputs.get('payload'):  
             self.logger.info(f'split_utxo_ft')
-
             for atomical_id, mint_info in sorted(ft_atomicals.items()):
                 expected_output_indexes = []
                 remaining_value = mint_info['value']
@@ -1353,39 +1352,41 @@ class BlockProcessor:
                     tx_numb = pack_le_uint64(tx_num)[:TXNUM_LEN]
                     self.put_atomicals_utxo(location, atomical_id, hashX + scripthash + value_sats + tx_numb)
                 atomical_ids_touched.append(atomical_id)
-            else:
-                self.logger.info(f'regular_utxo_ft')
-                total_amount_to_skip = 0
-                for atomical_id, mint_info in sorted(ft_atomicals.items()):
-                    expected_output_indexes = []
-                    remaining_value = mint_info['value']
-                    total_skipped_so_far = 0
-                    for out_idx, txout in enumerate(tx.outputs): 
-                        # If the first output should be skipped and we have not yet done so, then skip/ignore it
-                        if total_amount_to_skip > 0 and total_skipped_so_far < total_amount_to_skip:
-                            total_skipped_so_far += txout.value 
-                            continue 
-                        # For all remaining outputs attach colors as long as there is adequate remaining_value left to cover the entire output value
-                        if txout.value <= remaining_value:
-                            expected_output_indexes.append(out_idx)
-                            remaining_value -= txout.value
-                        else: 
-                            # Since one of the inputs was not less than or equal to the remaining value, then stop assigning outputs. The remaining coins are burned. RIP.
-                            break
-                    # For each expected output to be colored, check for state-like updates
-                    for expected_output_index in expected_output_indexes:
-                        output_idx_le = pack_le_uint32(expected_output_index)
-                        location = tx_hash + output_idx_le
-                        txout = tx.outputs[expected_output_index]
-                        scripthash = double_sha256(txout.pk_script)
-                        hashX = self.coin.hashX_from_script(txout.pk_script)
-                        value_sats = pack_le_uint64(txout.value)
-                        put_general_data(b'po' + location, txout.pk_script)
-                        tx_numb = pack_le_uint64(tx_num)[:TXNUM_LEN]
-                        self.put_atomicals_utxo(location, atomical_id, hashX + scripthash + value_sats + tx_numb)
-                    atomical_ids_touched.append(atomical_id)
-                    total_amount_to_skip += mint_info['value']
-
+        else:
+            self.logger.info(f'regular_utxo_ft')
+            total_amount_to_skip = 0
+            fts_count = 0
+            for atomical_id, mint_info in sorted(ft_atomicals.items()):
+                fts_count += 1
+                expected_output_indexes = []
+                remaining_value = mint_info['value']
+                total_skipped_so_far = 0
+                for out_idx, txout in enumerate(tx.outputs): 
+                    # If the first output should be skipped and we have not yet done so, then skip/ignore it
+                    if total_amount_to_skip > 0 and total_skipped_so_far < total_amount_to_skip:
+                        total_skipped_so_far += txout.value 
+                        continue 
+                    # For all remaining outputs attach colors as long as there is adequate remaining_value left to cover the entire output value
+                    if txout.value <= remaining_value:
+                        expected_output_indexes.append(out_idx)
+                        remaining_value -= txout.value
+                    else: 
+                        # Since one of the inputs was not less than or equal to the remaining value, then stop assigning outputs. The remaining coins are burned. RIP.
+                        break
+                # For each expected output to be colored, check for state-like updates
+                for expected_output_index in expected_output_indexes:
+                    output_idx_le = pack_le_uint32(expected_output_index)
+                    location = tx_hash + output_idx_le
+                    txout = tx.outputs[expected_output_index]
+                    scripthash = double_sha256(txout.pk_script)
+                    hashX = self.coin.hashX_from_script(txout.pk_script)
+                    value_sats = pack_le_uint64(txout.value)
+                    put_general_data(b'po' + location, txout.pk_script)
+                    tx_numb = pack_le_uint64(tx_num)[:TXNUM_LEN]
+                    self.put_atomicals_utxo(location, atomical_id, hashX + scripthash + value_sats + tx_numb)
+                atomical_ids_touched.append(atomical_id)
+                total_amount_to_skip += mint_info['value']
+            assert(fts_count <= 1)
         return atomical_ids_touched
     
     # Create or delete data that was found at the location
@@ -1949,7 +1950,7 @@ class BlockProcessor:
         status, potential_dmt_atomical_id, all_entries = self.get_effective_ticker(ticker)
         if status != 'verified':
             if currentlocation == sample1 or currentlocation == sample2:
-                self.logger.info(f'yoshi_create_or_delete_decentralized_mint_output {currentlocation} SEQ1')
+                self.logger.info(f'yoshi_create_or_delete_decentralized_mint_output {currentlocation} {status} {ticker} SEQ1')
             self.logger.info(f'create_or_delete_decentralized_mint_output: potential_dmt_atomical_id not found for dmt operation in {hash_to_hex_str(tx_hash)}. Attempt was made for invalid ticker mint info. Ignoring...')
             return None 
 
