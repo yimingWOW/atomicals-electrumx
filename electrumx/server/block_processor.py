@@ -1574,6 +1574,8 @@ class BlockProcessor:
             # Only consider the name as valid if the required MINT_REALM_CONTAINER_TICKER_COMMIT_REVEAL_DELAY_BLOCKS has elapsed from the earliest
             # commit. We use this technique to ensure that any front running problems would have been resolved by then
             # And anyone who committed a name transaction had sufficient time to reveal it.
+            ch = mint_info['commit_height']
+            self.logger.info(f'get_effective_name_template ch={ch} current_height={current_height} {MINT_REALM_CONTAINER_TICKER_COMMIT_REVEAL_DELAY_BLOCKS}')
             if mint_info['commit_height'] <= current_height - MINT_REALM_CONTAINER_TICKER_COMMIT_REVEAL_DELAY_BLOCKS:
                 return 'verified', atomical_id, all_entries
             else: 
