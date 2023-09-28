@@ -62,7 +62,8 @@ from electrumx.lib.util_atomicals import (
     get_mint_info_op_factory,
     convert_db_mint_info_to_rpc_mint_info_format,
     create_collapsed_height_to_mod_path_history_items_map,
-    calculate_subrealm_rules_list_as_of_height
+    calculate_subrealm_rules_list_as_of_height,
+    validate_subrealm_rules_outputs_format
 )
 
 if TYPE_CHECKING:
@@ -2308,7 +2309,9 @@ class BlockProcessor:
             for idx, txout in enumerate(tx.outputs):
                 # Found the required payment amount and script
                 output_script_hex = txout.pk_script.hex()
-                expected_output_payment_value = expected_payment_outputs.get(output_script_hex)
+                expected_output_payment_value_dict = expected_payment_outputs.get(output_script_hex)
+                expected_output_payment_value = expected_output_payment_value_dict['v']
+                expected_output_payment_id_type = expected_output_payment_value_dict.get('id')
                 if not expected_output_payment_value or expected_output_payment_value < SUBREALM_MINT_MIN_PAYMENT_DUST_LIMIT:
                     continue 
                 if txout.value >= expected_output_payment_value:
@@ -2436,14 +2439,14 @@ class BlockProcessor:
         cache_mod_path_history.sort(key=lambda x: x['tx_num'], reverse=True)
         return cache_mod_path_history
 
+
     # Get a matched price point (if any) for a subrealm name for the parent atomical taking into account the height
     # Recall that the 'modpath' (contract) values will take effect only after 6 blocks have passed after the height in
     # which the update 'modpath' operation was mined.
     def get_applicable_subrealm_mint_rule_by_height(self, parent_atomical_id, proposed_subrealm_name, height):
         # Log an item with a prefix
         def print_applicable_subrealm_log(item):
-            self.logger.info(f'get_applicable_subrealm_mint_rule_by_height: {item}. parent_atomical_id={parent_atomical_id.hex()}, proposed_subrealm_name={proposed_subrealm_name}, height={height}')
-            
+            self.logger.info(f'get_applicable_subrealm_mint_rule_by_height: {item}. parent_atomical_id={parent_atomical_id.hex()}, proposed_subrealm_name={proposed_subrealm_name}, height={height}')   
         # Note: we must query the modpath history with the cache in case we have not yet flushed to disk
         # db_key = b'modpath' + atomical_id + mod_path_padded + tx_numb + output_idx_le + height_packed 
         subrealm_mint_modpath_history = self.get_mod_path_history(parent_atomical_id, SUBREALM_MINT_PATH)
@@ -2457,35 +2460,16 @@ class BlockProcessor:
             print_applicable_subrealm_log(f'get_applicable_subrealm_mint_rule_by_height: processing rule item regex_price_point={regex_price_point}')
             # Perform some sanity checks just in case
             regex_pattern = regex_price_point.get('p', None)
-            
             # Make sure the variables are defined
             if not regex_pattern:
                 print_applicable_subrealm_log(f'get_applicable_subrealm_mint_rule_by_height: empty pattern')
                 continue 
-
             # Outputs are the output script that must be paid to mint the subrealm
             outputs = regex_price_point.get('o', None)
-
             # check for a dict of outputs
-            if not isinstance(outputs, dict) or len(outputs.keys()) <= 0:
-                print_applicable_subrealm_log(f'get_applicable_subrealm_mint_rule_by_height: outputs is not a dict or is empty')
-                continue
-            # Validate all of the outputs
-            for output_item in outputs:
-                if not isinstance(output_item, dict):
-                    print_applicable_subrealm_log(f'get_applicable_subrealm_mint_rule_by_height: outputs item is not a dict')
-                    continue
-                # value is the price that must be paid to mint a subrealm
-                satoshis = output_item.get('v')
-                # Check that satoshis value is greater than 0
-                if not isinstance(satoshis, int) or satoshis < SUBREALM_MINT_MIN_PAYMENT_DUST_LIMIT:
-                    print_applicable_subrealm_log(f'get_applicable_subrealm_mint_rule_by_height: invalid satoshis value')
-                    continue
-                # script must be paid to mint a subrealm
-                script = output_item.get('s')
-                if not isinstance(output, str) or not is_hex_string(script):
-                    print_applicable_subrealm_log(f'get_applicable_subrealm_mint_rule_by_height: script is not a valid hex string')
-                    continue  
+            if not validate_subrealm_rules_outputs_format(outputs)
+                # Should never happen because we already validated in calculate_subrealm_rules_list_as_of_height that the format is good
+                continue  
             try:
                 # Compile the regular expression
                 valid_pattern = re.compile(rf"{regex_pattern}")
