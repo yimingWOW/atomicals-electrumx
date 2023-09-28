@@ -1353,7 +1353,6 @@ class BlockProcessor:
                     self.put_atomicals_utxo(location, atomical_id, hashX + scripthash + value_sats + tx_numb)
                 atomical_ids_touched.append(atomical_id)
         else:
-            self.logger.info(f'regular_utxo_ft')
             total_amount_to_skip = 0
             fts_count = 0
             for atomical_id, mint_info in sorted(ft_atomicals.items()):
@@ -1386,7 +1385,9 @@ class BlockProcessor:
                     self.put_atomicals_utxo(location, atomical_id, hashX + scripthash + value_sats + tx_numb)
                 atomical_ids_touched.append(atomical_id)
                 total_amount_to_skip += mint_info['value']
-            assert(fts_count <= 1)
+                self.logger.info(f'fts_count_loop {location_id_bytes_to_compact(atomical_id)}')
+            if fts_count > 1:
+                self.logger.info(f'critical_fts_count_gt {hash_to_hex_str(tx_hash)} {fts_count}')
         return atomical_ids_touched
     
     # Create or delete data that was found at the location
