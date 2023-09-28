@@ -1461,6 +1461,17 @@ class DB:
             modfile.write(item + '\n')
         modfile.close() 
 
+        # tick
+        arr = []
+        arrlocs = []
+        tickfile = open('/home/ubuntu/dbdump/tick_prefix.txt', 'w') 
+        tick_prefix = b'tick'
+        for the_key, the_value in self.utxo_db.iterator(prefix=tick_prefix):
+            arr.append(the_key.hex() + '-' + the_value.hex())
+        for item in arr:
+            tickfile.write(item + '\n')
+        tickfile.close() 
+
 
     # Populate the latest state of an atomical for a path
     def get_mod_state_path_latest(self, atomical_id, path, Verbose=False):
