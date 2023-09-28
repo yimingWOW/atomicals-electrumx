@@ -1953,7 +1953,7 @@ class BlockProcessor:
         status, potential_dmt_atomical_id, all_entries = self.get_effective_ticker(ticker)
         if status != 'verified':
             if currentlocation == sample1 or currentlocation == sample2:
-                self.logger.info(f'yoshi_create_or_delete_decentralized_mint_output {currentlocation} {status} {ticker} SEQ1')
+                self.logger.info(f'yoshi_create_or_delete_decentralized_mint_output {currentlocation} {status} {ticker} func_height={height} SEQ1')
             self.logger.info(f'create_or_delete_decentralized_mint_output: potential_dmt_atomical_id not found for dmt operation in {hash_to_hex_str(tx_hash)}. Attempt was made for invalid ticker mint info. Ignoring...')
             return None 
 
