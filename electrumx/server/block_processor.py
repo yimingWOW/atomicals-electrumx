@@ -2468,7 +2468,7 @@ class BlockProcessor:
             # Outputs are the output script that must be paid to mint the subrealm
             outputs = regex_price_point.get('o', None)
             # check for a dict of outputs
-            if not validate_subrealm_rules_outputs_format(outputs)
+            if not validate_subrealm_rules_outputs_format(outputs):
                 # Should never happen because we already validated in calculate_subrealm_rules_list_as_of_height that the format is good
                 continue  
             try:
