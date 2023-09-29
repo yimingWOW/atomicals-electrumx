@@ -1315,7 +1315,7 @@ def assign_expected_outputs_basic(atomical_id, ft_value, tx, start_out_idx):
             if remaining_value == 0:
                 return True, expected_output_indexes
         # Exit case output is greater than what we have in remaining_value
-        else
+        else:
             False, expected_output_indexes
         idx_count += 1
     return False, expected_output_indexes 
