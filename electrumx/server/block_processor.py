@@ -2128,7 +2128,7 @@ class BlockProcessor:
                 self.logger.info(f'Atomicals Genesis Block Hash: {hash_to_hex_str(block_header_hash)}')
                 concatenation_of_tx_hashes_with_valid_atomical_operation = block_header_hash
             elif height > self.coin.ATOMICALS_ACTIVATION_HEIGHT:
-                prev_atomicals_block_hash = self.get_general_data_with_cache(b'ah' + pack_le_uint32(height - 1))
+                prev_atomicals_block_hash = self.get_general_data_with_cache(b'tt' + pack_le_uint32(height - 1))
                 concatenation_of_tx_hashes_with_valid_atomical_operation = block_header_hash + prev_atomicals_block_hash
         # Use local vars for speed in the loops
         undo_info = []
@@ -2271,7 +2271,7 @@ class BlockProcessor:
         if self.is_atomicals_activated(height):
             # Save the atomicals hash for the current block
             current_height_atomicals_block_hash = self.coin.header_hash(concatenation_of_tx_hashes_with_valid_atomical_operation)
-            put_general_data(b'ah' + pack_le_uint32(height), current_height_atomicals_block_hash)
+            put_general_data(b'tt' + pack_le_uint32(height), current_height_atomicals_block_hash)
             self.logger.info(f'Calculated Atomicals Block Hash: height={height}, atomicals_block_hash={hash_to_hex_str(current_height_atomicals_block_hash)}')   
         
         return undo_info, atomicals_undo_info
@@ -2485,7 +2485,7 @@ class BlockProcessor:
         self.atomicals_rpc_format_cache.clear()
 
         # Delete the Atomicals hash for the current height as we are rolling back
-        self.delete_general_data(b'ah' + pack_le_uint32(self.height))
+        self.delete_general_data(b'tt' + pack_le_uint32(self.height))
 
         # Prevout values, in order down the block (coinbase first if present)
         # undo_info is in reverse block order
