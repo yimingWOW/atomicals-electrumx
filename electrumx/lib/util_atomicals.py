@@ -1281,6 +1281,83 @@ def calculate_subrealm_rules_list_as_of_height(height, subrealm_mint_modpath_his
     # Nothing was found or matched, return None
     return None
 
+def can_fit_into_outputs_from_idx(value, start_out_idx, outputs):
+    if start_out_idx >= len(outputs):
+        return False, None 
+    accum_value = 0
+    counter_i = 0
+    for i in range(start_out_idx, len(outputs) - 1):
+        counter_i = i
+        txout = outputs[i]
+        accum_value += txout.value
+        if accum_value == value: 
+            return True, i
+        if accum_value > value: 
+            return False, i - 1 # Check later if this is negative
+    return False, counter_i
+
+# Assign the ft quantity basic from the start to the end until exhausted
+def assign_expected_outputs_basic(atomical_id, ft_value, tx, start_out_idx):
+    # Color the first FT in a predictable manner
+    expected_output_indexes = []
+    remaining_value = ft_value
+    idx_count = 0
+    if start_out_idx >= len(tx.outputs):
+        return False, expected_output_indexes
+    for out_idx, txout in enumerate(tx.outputs): 
+        # Only consider outputs from the starting index
+        if idx_count < start_out_idx:
+            continue
+        # For all remaining outputs attach colors as long as there is adequate remaining_value left to cover the entire output value
+        if txout.value <= remaining_value:
+            expected_output_indexes.append(out_idx)
+            remaining_value -= txout.value
+            if remaining_value == 0:
+                return True, expected_output_indexes
+        # Exit case output is greater than what we have in remaining_value
+        else
+            False, expected_output_indexes
+        idx_count += 1
+    return False, expected_output_indexes 
+
+def calculate_outputs_to_color_for_atomical_ids(ft_atomicals, tx):
+    atomical_ids_to_output_idxs_map = {}
+    num_fts = len(ft_atomicals.keys())
+    if num_fts == 0:
+        return atomical_ids_to_output_idxs_map 
+
+    atomical_list = []
+    for atomical_id, ft_info in sorted(ft_atomicals.items()):
+        atomical_list.append({
+            'atomical_id': atomical_id,
+            'ft_info': ft_info,
+            'remaining_value': ft_info['value'] # used to track below
+        })
+
+    # Color the first FT in a predictable manner
+    expected_output_indexes = assign_expected_outputs_basic(atomical_id[0]['atomical_id'], atomical_id[0]['ft_info']['value'], tx, 0)
+    atomical_ids_to_output_idxs_map[atomical_id[0]['atomical_id']] = expected_output_indexes
+    if num_fts <= 1: 
+        return atomical_ids_to_output_idxs_map
+        
+    # If there were mere than one, than we shall walk all of the outputs to ensure everything lines up exactly
+    next_index_to_start = 0
+    valid_segments = True
+    for item in atomical_list:
+        atomical_id = item['atomical_id']
+        cleanly_assigned, expected_outputs = assign_expected_outputs_basic(atomical_id, item['ft_info']['value'], tx, next_index_to_start)
+        if len(expected_outputs) == 0:
+            valid_segments = False
+            break
+        atomical_ids_to_output_idxs_map[atomical_id] = expected_outputs
+        last_valid_out_idx = expected_outputs[-1]
+        next_index_to_start = last_valid_out_idx + 1 
+
+    # There was an invalid segment
+    if not valid_segments: 
+
+    return atomical_ids_to_output_idxs_map 
+
 # Get the candidate name request status for tickers, containers and realms (not subrealms though)
 # Base Status Values:
 #

@@ -63,7 +63,8 @@ from electrumx.lib.util_atomicals import (
     convert_db_mint_info_to_rpc_mint_info_format,
     create_collapsed_height_to_mod_path_history_items_map,
     calculate_subrealm_rules_list_as_of_height,
-    validate_subrealm_rules_outputs_format
+    validate_subrealm_rules_outputs_format,
+    calculate_outputs_to_color_for_atomical_ids
 )
 
 if TYPE_CHECKING:
@@ -1229,7 +1230,129 @@ class BlockProcessor:
                     0,
                     Delete
                 )
-             
+
+    # Color the NFT atomicals with splat command
+    def color_nft_atomicals_splat(self, nft_atomicals, tx_hash, tx, tx_num, atomical_ids_touched):
+        # Splat takes all of the NFT atomicals across all inputs (including multiple atomicals at the same utxo) 
+        # and then seperates them into their own distinctive output such that the result of the operation is no two atomicals
+        # will share a resulting output. This operation requires that there are at least as many outputs as there are NFT atomicals
+        # If there are not enough, then this is considered a noop. 
+        # If there are enough outputs, then the earliest atomical (sorted lexicographically in ascending order) goes to the 0'th output,
+        # then the second atomical goes to the 1'st output, etc until all atomicals are assigned to their own output.
+        expected_output_index_incrementing = 0 # Begin assigning splatted atomicals at the 0'th index
+        for atomical_id, mint_info in sorted(nft_atomicals.items()):
+            expected_output_index = expected_output_index_incrementing
+            if expected_output_index_incrementing >= len(tx.outputs) or is_unspendable(tx.outputs[expected_output_index_incrementing].pk_script):
+                expected_output_index = 0
+            output_idx_le = pack_le_uint32(expected_output_index)
+            location = tx_hash + output_idx_le
+            txout = tx.outputs[expected_output_index]
+            scripthash = double_sha256(txout.pk_script)
+            hashX = self.coin.hashX_from_script(txout.pk_script)
+            value_sats = pack_le_uint64(txout.value)
+            put_general_data(b'po' + location, txout.pk_script)
+            tx_numb = pack_le_uint64(tx_num)[:TXNUM_LEN]
+            self.put_atomicals_utxo(location, atomical_id, hashX + scripthash + value_sats + tx_numb)
+            atomical_ids_touched.append(atomical_id)
+            expected_output_index_incrementing += 1 
+
+    def color_nft_atomicals_regular(self, nft_atomicals, tx_hash, tx, tx_num, atomical_ids_touched):
+        # Process NFTs the normal way if splat was not requested or if the splat is invalid because there were not enough outputs
+        for atomical_id, mint_info in nft_atomicals.items():
+            if len(mint_info['input_indexes']) > 1:
+                raise IndexError(f'atomical location len is greater than 1. Critical developer or index error. AtomicalId={atomical_id.hex()}')
+            # The expected output index is equal to the input index...
+            expected_output_index = mint_info['input_indexes'][0]
+            # If it was unspendable output, then just set it to the 0th location
+            # ...and never allow an NFT atomical to be burned accidentally by having insufficient number of outputs either
+            # The expected output index will become the 0'th index if the 'x' extract operation was specified or there are insufficient outputs
+            if expected_output_index >= len(tx.outputs) or is_unspendable(tx.outputs[expected_output_index].pk_script):
+                expected_output_index = 0
+            # If this was the 'split' (y) command, then also move them to the 0th output
+            if operations_found_at_inputs and operations_found_at_inputs.get('op') == 'y' and operations_found_at_inputs.get('input_index') == 0:
+                expected_output_index = 0
+                
+            output_idx_le = pack_le_uint32(expected_output_index)
+            location = tx_hash + output_idx_le
+            txout = tx.outputs[expected_output_index]
+            scripthash = double_sha256(txout.pk_script)
+            hashX = self.coin.hashX_from_script(txout.pk_script)
+            value_sats = pack_le_uint64(txout.value)
+            put_general_data(b'po' + location, txout.pk_script)
+            self.put_or_delete_state_updates(operations_found_at_inputs, mint_info['atomical_id'], tx_num, tx_hash, output_idx_le, height, 0)
+            self.put_or_delete_state_updates(operations_found_at_inputs, mint_info['atomical_id'], tx_num, tx_hash, output_idx_le, height, 1)
+            # Only allow NFTs to be sealed.
+            # Useful for locking container collections, locking parent realms, and even locking any NFT atomical permanently
+            was_sealed = self.put_or_delete_sealed(operations_found_at_inputs, mint_info['atomical_id'], location)
+            if not was_sealed:
+                # Only advance the UTXO if it was not sealed
+                tx_numb = pack_le_uint64(tx_num)[:TXNUM_LEN]
+                self.put_atomicals_utxo(location, atomical_id, hashX + scripthash + value_sats + tx_numb)
+            atomical_ids_touched.append(atomical_id)
+
+    def color_ft_atomicals_split(self, ft_atomicals, tx_hash, tx, operations_found_at_inputs, atomical_ids_touched):
+        for atomical_id, mint_info in sorted(ft_atomicals.items()):
+            expected_output_indexes = []
+            remaining_value = mint_info['value']
+            # The FT type has the 'skip' (y) method which allows us to selectively skip a certain total number of token units (satoshis)
+            # before beginning to color the outputs.
+            # Essentially this makes it possible to "split" out multiple FT's located at the same input
+            # If the input at index 0 has the skip operation, then it will apply for the atomical token generally across all inputs and the first output will be skipped
+            total_amount_to_skip = 0
+            # Uses the compact form of atomical id as the keys for developer convenience
+            compact_atomical_id = location_id_bytes_to_compact(atomical_id)
+            total_amount_to_skip_potential = operations_found_at_inputs.get('payload').get(compact_atomical_id)
+            # Sanity check to ensure it is a non-negative integer
+            if isinstance(total_amount_to_skip_potential, int) and total_amount_to_skip_potential >= 0:
+                total_amount_to_skip = total_amount_to_skip_potential
+            total_skipped_so_far = 0
+            for out_idx, txout in enumerate(tx.outputs): 
+                # If the first output should be skipped and we have not yet done so, then skip/ignore it
+                if total_amount_to_skip > 0 and total_skipped_so_far < total_amount_to_skip:
+                    total_skipped_so_far += txout.value 
+                    continue 
+                # For all remaining outputs attach colors as long as there is adequate remaining_value left to cover the entire output value
+                if txout.value <= remaining_value:
+                    expected_output_indexes.append(out_idx)
+                    remaining_value -= txout.value
+                # Exit case when we have no more remaining_value to assign or the next output is greater than what we have in remaining_value
+                if txout.value > remaining_value or remaining_value <= 0:
+                    break
+            # For each expected output to be colored, check for state-like updates
+            for expected_output_index in expected_output_indexes:
+                self.build_put_atomicals_utxo(atomical_id, tx_hash, tx_num, expected_output_index)
+            atomical_ids_touched.append(atomical_id)
+    
+    def color_ft_atomicals_regular(self, ft_atomicals, tx_hash, tx, tx_num, operations_found_at_inputs, atomical_ids_touched):
+        atomical_id_to_expected_outs_map = calculate_outputs_to_color_for_atomical_ids(ft_atomicals, tx)
+        sanity_check_sums = {}
+        for atomical_id, outputs_to_color in atomical_id_to_expected_outs_map.items():
+            sanity_check_sums[atomical_id] = 0
+            for expected_output_index in outputs_to_color:
+                self.build_put_atomicals_utxo(atomical_id, tx_hash, tx_num, expected_output_index)
+                sanity_check_sums[atomical_id] += tx.outputs[expected_output_index].value
+            atomical_ids_touched.append(atomical_id)
+        # Sanity check that there can be no inflation
+        for atomical_id, data in ft_atomicals:
+            sum_out_value = sanity_check_sums[atomical_id]
+            input_value = data['value']
+            if sanity_check_sums[atomical_id] > input_value:
+                atomical_id_compact = location_id_bytes_to_compact(atomical_id)
+                self.logger.info(f'atomical_id={atomical_id_compact} input_value={input_value} sum_out_value={sum_out_value} {hash_to_hex_str(tx_hash)}')
+                raise IndexError(f'Fatal error the output sum of outputs is greater than input sum for Atomical: atomical_id={atomical_id_compact} input_value={input_value} sum_out_value={sum_out_value} {hash_to_hex_str(tx_hash)}')
+
+    def build_put_atomicals_utxo(self, atomical_id, tx_hash, tx_num, out_idx):
+        output_idx_le = pack_le_uint32(out_idx)
+        location = tx_hash + output_idx_le
+        txout = tx.outputs[out_idx]
+        scripthash = double_sha256(txout.pk_script)
+        hashX = self.coin.hashX_from_script(txout.pk_script)
+        value_sats = pack_le_uint64(txout.value)
+        put_general_data = self.general_data_cache.__setitem__
+        put_general_data(b'po' + location, txout.pk_script)
+        tx_numb = pack_le_uint64(tx_num)[:TXNUM_LEN]
+        self.put_atomicals_utxo(location, atomical_id, hashX + scripthash + value_sats + tx_numb)
+    
     # Apply the rules to color the outputs of the atomicals
     def color_atomicals_outputs(self, operations_found_at_inputs, atomicals_spent_at_inputs, tx, tx_hash, tx_num, height, is_unspendable):
         put_general_data = self.general_data_cache.__setitem__
@@ -1239,7 +1362,6 @@ class BlockProcessor:
             # Accumulate the total input value by atomical_id
             # The value will be used below to determine the amount of input we can allocate for FT's
             self.build_atomical_id_info_map(map_atomical_ids_to_info, atomicals_entry_list, txin_index)
-        
         # Group the atomicals by NFT and FT for easier handling
         # Also store them in a dict 
         nft_atomicals = {}
@@ -1251,145 +1373,22 @@ class BlockProcessor:
                 ft_atomicals[atomical_id] = mint_info
             else:
                 raise IndexError(f'color_atomicals_outputs: Invalid type. IndexError')
-        
-        splat_nft_atomicals = operations_found_at_inputs and operations_found_at_inputs['op'] == 'x' and operations_found_at_inputs['input_index'] == 0
-        if splat_nft_atomicals and len(nft_atomicals.keys()) > 0:
-            # Splat takes all of the NFT atomicals across all inputs (including multiple atomicals at the same utxo) 
-            # and then seperates them into their own distinctive output such that the result of the operation is no two atomicals
-            # will share a resulting output. This operation requires that there are at least as many outputs as there are NFT atomicals
-            # If there are not enough, then this is considered a noop. 
-            # If there are enough outputs, then the earliest atomical (sorted lexicographically in ascending order) goes to the 0'th output,
-            # then the second atomical goes to the 1'st output, etc until all atomicals are assigned to their own output.
-            expected_output_index_incrementing = 0 # Begin assigning splatted atomicals at the 0'th index
-            for atomical_id, mint_info in sorted(nft_atomicals.items()):
-                expected_output_index = expected_output_index_incrementing
-                if expected_output_index_incrementing >= len(tx.outputs) or is_unspendable(tx.outputs[expected_output_index_incrementing].pk_script):
-                    expected_output_index = 0
-                output_idx_le = pack_le_uint32(expected_output_index)
-                location = tx_hash + output_idx_le
-                txout = tx.outputs[expected_output_index]
-                scripthash = double_sha256(txout.pk_script)
-                hashX = self.coin.hashX_from_script(txout.pk_script)
-                value_sats = pack_le_uint64(txout.value)
-                put_general_data(b'po' + location, txout.pk_script)
-                tx_numb = pack_le_uint64(tx_num)[:TXNUM_LEN]
-                self.put_atomicals_utxo(location, atomical_id, hashX + scripthash + value_sats + tx_numb)
 
-                expected_output_index_incrementing += 1 
+        should_splat_nft_atomicals = operations_found_at_inputs and operations_found_at_inputs['op'] == 'x' and operations_found_at_inputs['input_index'] == 0
+        if should_splat_nft_atomicals and len(nft_atomicals.keys()) > 0:
+            self.color_nft_atomicals_splat(nft_atomicals, tx_hash, tx, tx_num, atomical_ids_touched)  
         else: 
-            # Process NFTs the normal way if splat was not requested or if the splat is invalid because there were not enough outputs
-            for atomical_id, mint_info in nft_atomicals.items():
-                if len(mint_info['input_indexes']) > 1:
-                    raise IndexError(f'atomical location len is greater than 1. Critical developer or index error. AtomicalId={atomical_id.hex()}')
-                # The expected output index is equal to the input index...
-                expected_output_index = mint_info['input_indexes'][0]
-                # If it was unspendable output, then just set it to the 0th location
-                # ...and never allow an NFT atomical to be burned accidentally by having insufficient number of outputs either
-                # The expected output index will become the 0'th index if the 'x' extract operation was specified or there are insufficient outputs
-                if expected_output_index >= len(tx.outputs) or is_unspendable(tx.outputs[expected_output_index].pk_script):
-                    expected_output_index = 0
-                # If this was the 'split' (y) command, then also move them to the 0th output
-                if operations_found_at_inputs and operations_found_at_inputs.get('op') == 'y' and operations_found_at_inputs.get('input_index') == 0:
-                    expected_output_index = 0
-                    
-                output_idx_le = pack_le_uint32(expected_output_index)
-                location = tx_hash + output_idx_le
-                txout = tx.outputs[expected_output_index]
-                scripthash = double_sha256(txout.pk_script)
-                hashX = self.coin.hashX_from_script(txout.pk_script)
-                value_sats = pack_le_uint64(txout.value)
-                put_general_data(b'po' + location, txout.pk_script)
-                self.put_or_delete_state_updates(operations_found_at_inputs, mint_info['atomical_id'], tx_num, tx_hash, output_idx_le, height, 0)
-                self.put_or_delete_state_updates(operations_found_at_inputs, mint_info['atomical_id'], tx_num, tx_hash, output_idx_le, height, 1)
-                # Only allow NFTs to be sealed.
-                # Useful for locking container collections, locking parent realms, and even locking any NFT atomical permanently
-                was_sealed = self.put_or_delete_sealed(operations_found_at_inputs, mint_info['atomical_id'], location)
-                if not was_sealed:
-                    # Only advance the UTXO if it was not sealed
-                    tx_numb = pack_le_uint64(tx_num)[:TXNUM_LEN]
-                    self.put_atomicals_utxo(location, atomical_id, hashX + scripthash + value_sats + tx_numb)
-                atomical_ids_touched.append(atomical_id)
-
+            self.color_nft_atomicals_regular(nft_atomicals, tx_hash, tx, tx_num, atomical_ids_touched)  
+            
         # Handle the FTs for the split case
-        if operations_found_at_inputs and operations_found_at_inputs.get('op') == 'y' and operations_found_at_inputs.get('input_index') == 0 and operations_found_at_inputs.get('payload'):  
-            self.logger.info(f'split_utxo_ft')
-            for atomical_id, mint_info in sorted(ft_atomicals.items()):
-                expected_output_indexes = []
-                remaining_value = mint_info['value']
-                # The FT type has the 'skip' (y) method which allows us to selectively skip a certain total number of token units (satoshis)
-                # before beginning to color the outputs.
-                # Essentially this makes it possible to "split" out multiple FT's located at the same input
-                # If the input at index 0 has the skip operation, then it will apply for the atomical token generally across all inputs and the first output will be skipped
-                total_amount_to_skip = 0
-                # Uses the compact form of atomical id as the keys for developer convenience
-                compact_atomical_id = location_id_bytes_to_compact(atomical_id)
-                total_amount_to_skip_potential = operations_found_at_inputs.get('payload').get(compact_atomical_id)
-                # Sanity check to ensure it is a non-negative integer
-                if isinstance(total_amount_to_skip_potential, int) and total_amount_to_skip_potential >= 0:
-                    total_amount_to_skip = total_amount_to_skip_potential
-                total_skipped_so_far = 0
-                for out_idx, txout in enumerate(tx.outputs): 
-                    # If the first output should be skipped and we have not yet done so, then skip/ignore it
-                    if total_amount_to_skip > 0 and total_skipped_so_far < total_amount_to_skip:
-                        total_skipped_so_far += txout.value 
-                        continue 
-                    # For all remaining outputs attach colors as long as there is adequate remaining_value left to cover the entire output value
-                    if txout.value <= remaining_value:
-                        expected_output_indexes.append(out_idx)
-                        remaining_value -= txout.value
-                    else: 
-                        # Since one of the inputs was not less than or equal to the remaining value, then stop assigning outputs. The remaining coins are burned. RIP.
-                        break
-                # For each expected output to be colored, check for state-like updates
-                for expected_output_index in expected_output_indexes:
-                    output_idx_le = pack_le_uint32(expected_output_index)
-                    location = tx_hash + output_idx_le
-                    txout = tx.outputs[expected_output_index]
-                    scripthash = double_sha256(txout.pk_script)
-                    hashX = self.coin.hashX_from_script(txout.pk_script)
-                    value_sats = pack_le_uint64(txout.value)
-                    put_general_data(b'po' + location, txout.pk_script)
-                    tx_numb = pack_le_uint64(tx_num)[:TXNUM_LEN]
-                    self.put_atomicals_utxo(location, atomical_id, hashX + scripthash + value_sats + tx_numb)
-                atomical_ids_touched.append(atomical_id)
+        should_split_ft_atomicals = operations_found_at_inputs and operations_found_at_inputs.get('op') == 'y' and operations_found_at_inputs.get('input_index') == 0 and operations_found_at_inputs.get('payload')
+        if should_split_ft_atomicals:
+            self.color_ft_atomicals_split(ft_atomicals, tx_hash, tx, tx_num, operations_found_at_inputs, atomical_ids_touched)
         else:
-            total_amount_to_skip = 0
-            fts_count = 0
-            for atomical_id, mint_info in sorted(ft_atomicals.items()):
-                fts_count += 1
-                expected_output_indexes = []
-                remaining_value = mint_info['value']
-                total_skipped_so_far = 0
-                for out_idx, txout in enumerate(tx.outputs): 
-                    # If the first output should be skipped and we have not yet done so, then skip/ignore it
-                    if total_amount_to_skip > 0 and total_skipped_so_far < total_amount_to_skip:
-                        total_skipped_so_far += txout.value 
-                        continue 
-                    # For all remaining outputs attach colors as long as there is adequate remaining_value left to cover the entire output value
-                    if txout.value <= remaining_value:
-                        expected_output_indexes.append(out_idx)
-                        remaining_value -= txout.value
-                    else: 
-                        # Since one of the inputs was not less than or equal to the remaining value, then stop assigning outputs. The remaining coins are burned. RIP.
-                        break
-                # For each expected output to be colored, check for state-like updates
-                for expected_output_index in expected_output_indexes:
-                    output_idx_le = pack_le_uint32(expected_output_index)
-                    location = tx_hash + output_idx_le
-                    txout = tx.outputs[expected_output_index]
-                    scripthash = double_sha256(txout.pk_script)
-                    hashX = self.coin.hashX_from_script(txout.pk_script)
-                    value_sats = pack_le_uint64(txout.value)
-                    put_general_data(b'po' + location, txout.pk_script)
-                    tx_numb = pack_le_uint64(tx_num)[:TXNUM_LEN]
-                    self.put_atomicals_utxo(location, atomical_id, hashX + scripthash + value_sats + tx_numb)
-                atomical_ids_touched.append(atomical_id)
-                total_amount_to_skip += mint_info['value']
-                self.logger.info(f'fts_count_loop {location_id_bytes_to_compact(atomical_id)}')
-            if fts_count > 1:
-                self.logger.info(f'critical_fts_count_gt {hash_to_hex_str(tx_hash)} {fts_count}')
+            self.color_ft_atomicals_regular(ft_atomicals, tx_hash, tx, tx_num, operations_found_at_inputs, atomical_ids_touched)
+        
         return atomical_ids_touched
-    
+
     # Create or delete data that was found at the location
     def create_or_delete_data_location(self, tx_hash, operations_found_at_inputs, Delete=False):
         if not operations_found_at_inputs or operations_found_at_inputs['op'] != 'dat':
