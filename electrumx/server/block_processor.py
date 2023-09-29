@@ -1320,7 +1320,7 @@ class BlockProcessor:
                     break
             # For each expected output to be colored, check for state-like updates
             for expected_output_index in expected_output_indexes:
-                self.build_put_atomicals_utxo(atomical_id, tx_hash, tx_num, expected_output_index)
+                self.build_put_atomicals_utxo(atomical_id, tx_hash, tx, tx_num, expected_output_index)
             atomical_ids_touched.append(atomical_id)
     
     def color_ft_atomicals_regular(self, ft_atomicals, tx_hash, tx, tx_num, operations_found_at_inputs, atomical_ids_touched):
@@ -1329,7 +1329,7 @@ class BlockProcessor:
         for atomical_id, outputs_to_color in atomical_id_to_expected_outs_map.items():
             sanity_check_sums[atomical_id] = 0
             for expected_output_index in outputs_to_color:
-                self.build_put_atomicals_utxo(atomical_id, tx_hash, tx_num, expected_output_index)
+                self.build_put_atomicals_utxo(atomical_id, tx_hash, tx, tx_num, expected_output_index)
                 sanity_check_sums[atomical_id] += tx.outputs[expected_output_index].value
             atomical_ids_touched.append(atomical_id)
         # Sanity check that there can be no inflation
@@ -1341,7 +1341,7 @@ class BlockProcessor:
                 self.logger.info(f'atomical_id={atomical_id_compact} input_value={input_value} sum_out_value={sum_out_value} {hash_to_hex_str(tx_hash)}')
                 raise IndexError(f'Fatal error the output sum of outputs is greater than input sum for Atomical: atomical_id={atomical_id_compact} input_value={input_value} sum_out_value={sum_out_value} {hash_to_hex_str(tx_hash)}')
 
-    def build_put_atomicals_utxo(self, atomical_id, tx_hash, tx_num, out_idx):
+    def build_put_atomicals_utxo(self, atomical_id, tx_hash, tx, tx_num, out_idx):
         output_idx_le = pack_le_uint32(out_idx)
         location = tx_hash + output_idx_le
         txout = tx.outputs[out_idx]
