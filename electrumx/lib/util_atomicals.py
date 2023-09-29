@@ -1321,24 +1321,40 @@ def assign_expected_outputs_basic(atomical_id, ft_value, tx, start_out_idx):
     return False, expected_output_indexes 
 
 def calculate_outputs_to_color_for_atomical_ids(ft_atomicals, tx):
-    atomical_ids_to_output_idxs_map = {}
     num_fts = len(ft_atomicals.keys())
     if num_fts == 0:
-        return atomical_ids_to_output_idxs_map 
-
+        return {} 
     atomical_list = []
     for atomical_id, ft_info in sorted(ft_atomicals.items()):
         atomical_list.append({
             'atomical_id': atomical_id,
-            'ft_info': ft_info,
-            'remaining_value': ft_info['value'] # used to track below
+            'ft_info': ft_info
         })
+    next_start_out_idx = 0
+    potential_atomical_ids_to_output_idxs_map = {}
+    non_clean_output_slots = False
     for item in atomical_list:
         atomical_id = item['atomical_id']
-        cleanly_assigned, expected_outputs = assign_expected_outputs_basic(atomical_id, item['ft_info']['value'], tx, 0)
-        atomical_ids_to_output_idxs_map[atomical_id] = expected_outputs
+        cleanly_assigned, expected_outputs = assign_expected_outputs_basic(atomical_id, item['ft_info']['value'], tx, next_start_out_idx)
+        if cleanly_assigned and len(expected_outputs):
+            next_start_out_idx = expected_outputs[-1] + 1
+            potential_atomical_ids_to_output_idxs_map[atomical_id] = expected_outputs
+        else:
+            # Erase the potential
+            potential_atomical_ids_to_output_idxs_map = {}
+            non_clean_output_slots = True
+            break
 
-    return atomical_ids_to_output_idxs_map 
+    # If the output slots did not fit cleanly, then default to just assigning everything from the first output index
+    if non_clean_output_slots:
+        print(f'calculate_outputs_to_color_for_atomical_ids non_clean_output_slots {non_clean_output_slots} {ft_atomicals} ')
+        potential_atomical_ids_to_output_idxs_map = {}
+        for item in atomical_list:
+            atomical_id = item['atomical_id']
+            cleanly_assigned, expected_outputs = assign_expected_outputs_basic(atomical_id, item['ft_info']['value'], tx, 0)
+            atomical_ids_to_output_idxs_map[atomical_id] = expected_outputs
+    else:
+        return potential_atomical_ids_to_output_idxs_map 
 
 # Get the candidate name request status for tickers, containers and realms (not subrealms though)
 # Base Status Values:
