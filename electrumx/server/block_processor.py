@@ -1333,9 +1333,9 @@ class BlockProcessor:
                 sanity_check_sums[atomical_id] += tx.outputs[expected_output_index].value
             atomical_ids_touched.append(atomical_id)
         # Sanity check that there can be no inflation
-        for atomical_id, data in ft_atomicals:
+        for atomical_id, ft_info in sorted(ft_atomicals.items()):
             sum_out_value = sanity_check_sums[atomical_id]
-            input_value = data['value']
+            input_value = ft_info['value']
             if sanity_check_sums[atomical_id] > input_value:
                 atomical_id_compact = location_id_bytes_to_compact(atomical_id)
                 self.logger.info(f'atomical_id={atomical_id_compact} input_value={input_value} sum_out_value={sum_out_value} {hash_to_hex_str(tx_hash)}')
