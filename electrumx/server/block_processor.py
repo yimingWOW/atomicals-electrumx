@@ -1838,7 +1838,8 @@ class BlockProcessor:
         if not request_name:
             self.logger.info(f'populate_name_subtype_specific_fields: not request_name')
             return None, None
-        status, candidate_id, raw_candidate_entries = get_effective_name_func(request_name)
+        height = self.height
+        status, candidate_id, raw_candidate_entries = get_effective_name_func(request_name, height)
         atomical['$' + type_str + '_candidates'] = format_name_type_candidates_to_rpc(raw_candidate_entries, self.build_atomical_id_to_candidate_map(raw_candidate_entries))
         atomical['$request_' + type_str + '_status'] = get_name_request_candidate_status(self.height, atomical, status, candidate_id, type_str)  
         # Populate the request specific fields
@@ -1853,7 +1854,8 @@ class BlockProcessor:
             return None, None
         pid_compact = atomical['mint_info']['$parent_realm'] 
         pid = compact_to_location_id_bytes(pid_compact)  
-        status, candidate_id, raw_candidate_entries = self.get_effective_subrealm(pid, request_subrealm)
+        height = self.height
+        status, candidate_id, raw_candidate_entries = self.get_effective_subrealm(pid, request_subrealm, height)
         atomical['subtype'] = 'request_subrealm' # Will change to 'subrealm' if it is found to be valid
         # Populate the requested full realm name
         self.populate_request_full_realm_name(atomical, pid, request_subrealm)

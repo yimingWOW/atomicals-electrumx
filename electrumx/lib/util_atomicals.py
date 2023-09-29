@@ -1333,28 +1333,10 @@ def calculate_outputs_to_color_for_atomical_ids(ft_atomicals, tx):
             'ft_info': ft_info,
             'remaining_value': ft_info['value'] # used to track below
         })
-
-    # Color the first FT in a predictable manner
-    expected_output_indexes = assign_expected_outputs_basic(atomical_id[0]['atomical_id'], atomical_id[0]['ft_info']['value'], tx, 0)
-    atomical_ids_to_output_idxs_map[atomical_id[0]['atomical_id']] = expected_output_indexes
-    if num_fts <= 1: 
-        return atomical_ids_to_output_idxs_map
-        
-    # If there were mere than one, than we shall walk all of the outputs to ensure everything lines up exactly
-    next_index_to_start = 0
-    valid_segments = True
     for item in atomical_list:
         atomical_id = item['atomical_id']
-        cleanly_assigned, expected_outputs = assign_expected_outputs_basic(atomical_id, item['ft_info']['value'], tx, next_index_to_start)
-        if len(expected_outputs) == 0:
-            valid_segments = False
-            break
+        cleanly_assigned, expected_outputs = assign_expected_outputs_basic(atomical_id, item['ft_info']['value'], tx, 0)
         atomical_ids_to_output_idxs_map[atomical_id] = expected_outputs
-        last_valid_out_idx = expected_outputs[-1]
-        next_index_to_start = last_valid_out_idx + 1 
-
-    # There was an invalid segment
-    if not valid_segments: 
 
     return atomical_ids_to_output_idxs_map 
 
