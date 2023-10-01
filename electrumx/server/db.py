@@ -1505,11 +1505,6 @@ class DB:
                     continue 
                 # Whether a lock was requested at the current update
                 successfully_locked_property = False
-                # If a property starts with a caret ^ such as example: ^myvariable 
-                # Then it means the property is immutable and impossible to update or delete forever after setting it the first time
-                if prop.startswith('^'):
-                    if latest_state.get(prop) != None:
-                        continue 
                 else: 
                     # If it starts with a '@' then it is a lockable (or freezable property)
                     if prop.startswith('@'):
