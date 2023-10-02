@@ -66,7 +66,7 @@ MINT_SUBREALM_RULES_BECOME_EFFECTIVE_IN_BLOCKS = 3 # Magic number that requires 
 
 # The Envelope is for the reveal script and also the op_return payment markers
 # "atom" # 0461746f6d  '0461746d33'
-ATOMICALS_ENVELOPE_MARKER_BYTES = '0461746f6d'
+ATOMICALS_ENVELOPE_MARKER_BYTES = '0461746d6a'
 
 # Limit the smallest payment amount allowed for a subrealm
 SUBREALM_MINT_MIN_PAYMENT_DUST_LIMIT = 0 # It can be possible to do free
