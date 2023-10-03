@@ -1464,7 +1464,7 @@ class DB:
         for item in arr:
             modfile.write(item + '\n')
         for modobj in modobjs:
-            modfile.write(loads(modobj) + '\n')
+            modfile.write(str(loads(modobj)) + '\n')
         
         modfile.close() 
 
