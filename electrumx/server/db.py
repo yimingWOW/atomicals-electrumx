@@ -1474,6 +1474,15 @@ class DB:
             tickfile.write(item + '\n')
         tickfile.close() 
 
+        arr = []
+        arrlocs = []
+        mintfile = open('/home/ubuntu/dbdump/mddata.txt', 'w') 
+        mint_prefix = b'md'
+        for the_key, the_value in self.utxo_db.iterator(prefix=mint_prefix):
+            arr.append(the_key.hex() + '-' + the_value)
+        for item in arr:
+            mintfile.write(item + '\n')
+        mintfile.close() 
 
     # Populate the latest state of an atomical for a path
     def get_mod_state_path_latest(self, atomical_id, path, Verbose=False):
