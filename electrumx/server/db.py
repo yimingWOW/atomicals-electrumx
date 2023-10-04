@@ -1484,7 +1484,7 @@ class DB:
         mintfile = open('/home/ubuntu/dbdump/mddata.txt', 'w') 
         mint_prefix = b'md'
         for the_key, the_value in self.utxo_db.iterator(prefix=mint_prefix):
-            arr.append(the_key.hex() + '-' + the_value)
+            arr.append(the_key.hex() + '-' + the_value.hex())
         for item in arr:
             mintfile.write(item + '\n')
         mintfile.close() 
