@@ -1189,6 +1189,7 @@ class ElectrumX(SessionBase):
         utxos.extend(await self.mempool.unordered_UTXOs(hashX))
         self.bump_cost(1.0 + len(utxos) / 50)
         spends = await self.mempool.potential_spends(hashX)
+        returned_utxos = []
         for utxo in utxos:
             if (utxo.tx_hash, utxo.tx_pos) in spends:
                 continue
@@ -1200,7 +1201,6 @@ class ElectrumX(SessionBase):
                 atomical_basic_info = await self.session_mgr.bp.get_base_mint_info_rpc_format_by_atomical_id(atomical_id) 
                 # Todo need to combine mempool atomicals 
                 atomical_id_compact = location_id_bytes_to_compact(atomical_id)
-                atomicals_id_map[atomical_id_compact] = atomical_basic_info
                 atomicals_basic_infos.append(atomical_id_compact)
                 returned_utxos.append({
                     'txid': hash_to_hex_str(utxo.tx_hash),
