@@ -1202,16 +1202,17 @@ class ElectrumX(SessionBase):
                 # Todo need to combine mempool atomicals 
                 atomical_id_compact = location_id_bytes_to_compact(atomical_id)
                 atomicals_basic_infos.append(atomical_id_compact)
-                returned_utxos.append({
-                    'txid': hash_to_hex_str(utxo.tx_hash),
-                    'tx_hash': hash_to_hex_str(utxo.tx_hash),
-                    'index': utxo.tx_pos,
-                    'tx_pos': utxo.tx_pos,
-                    'vout': utxo.tx_pos,
-                    'height': utxo.height, 
-                    'value': utxo.value,
-                    'atomicals': atomicals_basic_infos
-                })
+            
+            returned_utxos.append({
+                'txid': hash_to_hex_str(utxo.tx_hash),
+                'tx_hash': hash_to_hex_str(utxo.tx_hash),
+                'index': utxo.tx_pos,
+                'tx_pos': utxo.tx_pos,
+                'vout': utxo.tx_pos,
+                'height': utxo.height, 
+                'value': utxo.value,
+                'atomicals': atomicals_basic_infos
+            })
         return returned_utxos
 
     # Get atomical_id from an atomical inscription number
