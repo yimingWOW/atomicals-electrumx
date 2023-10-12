@@ -2456,12 +2456,7 @@ class BlockProcessor:
 
         regex_price_point_list = validate_rules(regex_price_point_list)
         
-        # Ensure there is a list of regex price list that is available for the atomical
-        if not regex_price_point_list or len(regex_price_point_list['rules']) <= 0:
-            print_applicable_subrealm_log('get_applicable_subrealm_mint_rule_by_height: no valid rules array found, or has no items')
-            return None 
-
-        for regex_price_point in regex_price_point_list['rules']:
+        for regex_price_point in regex_price_point_list:
             print_applicable_subrealm_log(f'get_applicable_subrealm_mint_rule_by_height: processing rule item regex_price_point={regex_price_point}')
             # Perform some sanity checks just in case
             regex_pattern = regex_price_point.get('p', None)
