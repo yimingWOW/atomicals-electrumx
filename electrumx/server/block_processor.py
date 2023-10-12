@@ -1207,7 +1207,7 @@ class BlockProcessor:
             'payload': copied_data_state,
             'payload_bytes': init_payload_bytes,
         }
-        if mint_info['type'] == 'NFT':
+        if mint_info['type'] == 'NFT' and copied_data_state.keys() > 0:
             self.put_or_delete_state_updates(op_struct, 
                 atomical_id, 
                 mint_info['reveal_location_tx_num'], 
