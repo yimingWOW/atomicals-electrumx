@@ -1000,7 +1000,7 @@ def parse_protocols_operations_from_witness_for_input(txinwitness):
                             operation_type, payload = parse_operation_from_script(script, n + 5)
                             if operation_type != None:
                                 print(f'Atomicals envelope and operation found: {operation_type}')
-                                print(f'Atomicals envelope payload: {payload}')
+                                print(f'Atomicals envelope payload: {payload.hex()}')
                                 return operation_type, payload
                             break
                 if found_operation_definition:

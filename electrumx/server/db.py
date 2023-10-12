@@ -1582,7 +1582,7 @@ class DB:
  
     # Populate the latest state of an atomical for a path
     def populate_extended_mod_state_latest_atomical_info(self, atomical_id, atomical, height):
-        mod_history = self.get_mod_history(parent_atomical_id, height)
+        mod_history = self.get_mod_history(atomical_id, height)
         latest_state = calculate_latest_state_from_mod_history(mod_history)
         latest_state_auto_encoded = auto_encode_bytes_elements(latest_state)
         atomical['state'] = {
