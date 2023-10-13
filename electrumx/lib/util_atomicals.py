@@ -1151,7 +1151,7 @@ def apply_delete_state_mutation(current_object, state_mutation_map):
         # The property value is a boolean true, which means to delete the field
         if isinstance(value, bool) and value == True:
             current_object.pop(prop, None)
-        elif isinstance(value, dict):
+        elif isinstance(value, dict) and isinstance(current_object.get(prop, None), dict):
             # It is a dictionary key, we recurse underneath to delete the properties below
             apply_delete_state_mutation(current_object[prop], value)
     return current_object
