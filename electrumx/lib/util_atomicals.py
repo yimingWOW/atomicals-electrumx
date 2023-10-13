@@ -1121,6 +1121,8 @@ def validate_subrealm_rules_outputs_format(outputs):
     return True
 
 def apply_set_state_mutation(current_object, state_mutation_map):
+    if not isinstance(state_mutation_map, dict):
+        return
     # For each property apply the state set update 
     for prop, value in state_mutation_map.items():
         # Do nothing for parameter $a
@@ -1139,6 +1141,8 @@ def apply_set_state_mutation(current_object, state_mutation_map):
     return current_object
 
 def apply_delete_state_mutation(current_object, state_mutation_map):
+    if not isinstance(state_mutation_map, dict):
+        return
     # For each property apply the state delete the key
     for prop, value in state_mutation_map.items():
         # Do nothing for parameter $a
