@@ -1161,6 +1161,7 @@ def calculate_latest_state_from_mod_history(mod_history):
     mod_history.sort(key=lambda x: x['tx_num'], reverse=False)
     current_object_state = {}
     for element in mod_history:
+        print(f'calculate_latest_state_from_mod_history {element}')
         has_action_prop = element['data'].get('$a')
         action_to_perform = 0 # Set/update = 0
         # We assume there is only the default $action (which can explicitly be indicated with 'set') and 'delete'
