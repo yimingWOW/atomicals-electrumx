@@ -1149,7 +1149,7 @@ def apply_delete_state_mutation(current_object, state_mutation_map):
         if prop == '$a':
             continue
         # key is found, set it if it's a scalar and is a boolean true
-        if isinstance(current_object.get(prop, None), bool) and current_objectget(prop, None) == True:
+        if isinstance(current_object.get(prop, None), bool) and current_object.get(prop, None) == True:
             current_object.pop(prop, None)
         elif isinstance(current_object.get(prop), dict):
             # it is a dictionary, we recurse underneath to delete the properties
