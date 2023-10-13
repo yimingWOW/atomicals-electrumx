@@ -1136,7 +1136,7 @@ def apply_set_state_mutation(current_object, state_mutation_map):
             if not isinstance(current_object[prop], dict):
                 current_object[prop] = value 
             else: 
-                # it is a dictionary, we recurse underneath to set the properties
+                # There already exists a dictionary at this level, we recurse to set the properties below
                 apply_set_state_mutation(current_object[prop], value)
     return current_object
 
@@ -1148,11 +1148,11 @@ def apply_delete_state_mutation(current_object, state_mutation_map):
         # Do nothing for parameter $a
         if prop == '$a':
             continue
-        # key is found, set it if it's a scalar and is a boolean true
-        if isinstance(current_object.get(prop, None), bool) and current_object.get(prop, None) == True:
+        # The property value is a boolean true, which means to delete the field
+        if isinstance(value, bool) and value == True:
             current_object.pop(prop, None)
-        elif isinstance(current_object.get(prop), dict):
-            # it is a dictionary, we recurse underneath to delete the properties
+        elif isinstance(value, dict):
+            # It is a dictionary key, we recurse underneath to delete the properties below
             apply_delete_state_mutation(current_object[prop], value)
     return current_object
 
