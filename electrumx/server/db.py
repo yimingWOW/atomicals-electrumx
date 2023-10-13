@@ -1605,12 +1605,12 @@ class DB:
         history = []
         for db_key, db_value in self.utxo_db.iterator(prefix=prefix, reverse=True):
             # Key: b'mod' + atomical_id + tx_hash + out_idx
-            tx_hash = db_key[ PREFIX_BYTE_LEN + ATOMICAL_ID_LEN : PREFIX_BYTE_LEN + ATOMICAL_ID_LEN + TX_HASH_LEN]
+            tx_hash = db_key[ PREFIX_BYTE_LEN + ATOMICAL_ID_LEN + TXNUM_LEN: PREFIX_BYTE_LEN + ATOMICAL_ID_LEN + TXNUM_LEN + TX_HASH_LEN]
             tx_num, tx_height = self.get_tx_num_height_from_tx_hash(tx_hash)
             # Requested limits on history
             if tx_height > max_height:
                 break
-            out_idx_packed = db_key[ PREFIX_BYTE_LEN + ATOMICAL_ID_LEN + TX_HASH_LEN: PREFIX_BYTE_LEN + ATOMICAL_ID_LEN + TX_HASH_LEN + 4]
+            out_idx_packed = db_key[ PREFIX_BYTE_LEN + ATOMICAL_ID_LEN + TXNUM_LEN + TX_HASH_LEN: PREFIX_BYTE_LEN + ATOMICAL_ID_LEN + TXNUM_LEN + TX_HASH_LEN + 4]
             out_idx, = unpack_le_uint32(out_idx_packed)
             entry = {
                 'tx_num': tx_num, 
