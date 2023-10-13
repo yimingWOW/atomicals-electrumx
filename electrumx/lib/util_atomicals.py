@@ -1148,16 +1148,12 @@ def apply_delete_state_mutation(current_object, state_mutation_map):
         # Do nothing for parameter $a
         if prop == '$a':
             continue
-        # Key not found, do nothing
-        if not current_object.get(prop):
-            current_object[prop] = value
-        else: 
-            # key is found, set it if it's a scalar and is a boolean true
-            if isinstance(current_object[prop], bool) and current_object[prop] == True:
-                current_object.pop(prop, None)
-            elif isinstance(current_object[prop], dict):
-                # it is a dictionary, we recurse underneath to delete the properties
-                apply_delete_state_mutation(current_object[prop], value)
+        # key is found, set it if it's a scalar and is a boolean true
+        if isinstance(current_object.get(prop, None), bool) and current_objectget(prop, None) == True:
+            current_object.pop(prop, None)
+        elif isinstance(current_object.get(prop), dict):
+            # it is a dictionary, we recurse underneath to delete the properties
+            apply_delete_state_mutation(current_object[prop], value)
     return current_object
 
 def calculate_latest_state_from_mod_history(mod_history):
