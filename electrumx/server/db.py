@@ -1618,7 +1618,7 @@ class DB:
                 'height': tx_height, 
                 'txid': hash_to_hex_str(tx_hash), 
                 'index': out_idx,
-                'data': db_value.hex()
+                'data': loads(db_value)
             }
             history.append(entry)
         # Sort by descending tx_num
