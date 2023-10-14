@@ -1587,9 +1587,7 @@ class ElectrumX(SessionBase):
                 'current_height': current_height,
                 'current_height_rules': current_height_rules
             }
-            if Verbose:
-                struct_to_populate['nearest_parent_realm_subrealm_mint_rules']['rules_history'] = subrealm_mint_mod_history
-            if next_height_rules and len(next_height_rules) > 0:
+            if current_height_rules and len(current_height_rules) > 0:
                 nearest_parent_realm_subrealm_mint_allowed = True
             struct_to_populate['nearest_parent_realm_subrealm_mint_allowed'] = nearest_parent_realm_subrealm_mint_allowed
         #
