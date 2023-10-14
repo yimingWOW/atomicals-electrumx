@@ -2307,12 +2307,14 @@ class BlockProcessor:
                 # Found the required payment amount and script
                 output_script_hex = txout.pk_script.hex()
                 expected_output_payment_value_dict = expected_payment_outputs.get(output_script_hex)
-                expected_output_payment_value = expected_output_payment_value_dict['v']
+                if not expected_output_payment_value_dict:
+                    continue
+                expected_output_payment_value = expected_output_payment_value_dict.get('v', None)
                 if not expected_output_payment_value or expected_output_payment_value < SUBREALM_MINT_MIN_PAYMENT_DUST_LIMIT:
                     continue 
                 if txout.value >= expected_output_payment_value:
                     self.logger.info(f'create_or_delete_subrealm_payment_output_if_valid gt_expected_output_payment_value')
-                    expected_output_payment_id_type = expected_output_payment_value_dict.get('id')
+                    expected_output_payment_id_type = expected_output_payment_value_dict.get('id', None)
                     # If there was a required color for the payment, then check it here
                     if expected_output_payment_id_type:
                         self.logger.info(f'create_or_delete_subrealm_payment_output_if_valid expected_output_payment_id_type={expected_output_payment_id_type}')
