@@ -1188,9 +1188,6 @@ class BlockProcessor:
 
     # Refactor this later to combine with put_or_delete_state_updates
     def put_or_delete_init_state_updates(self, mint_info, data_payload, Delete):
-        if mint_info['type'] != 'NFT':
-            return
-            
         tx_hash = mint_info['reveal_location_txid']
         atomical_id = mint_info['id']
         height = mint_info['reveal_location_height']
@@ -1198,9 +1195,6 @@ class BlockProcessor:
         # Make a deep copy of the data payload and remove the reserved sections
         copied_data_state = copy.deepcopy(data_payload)
         # Remove any of the reserved sections
-        copied_data_state.pop('meta', None)
-        copied_data_state.pop('ctx', None)
-        copied_data_state.pop('init', None)
         copied_data_state.pop('args', None)
         init_payload_bytes = dumps(copied_data_state)
         op_struct = {
@@ -1209,7 +1203,7 @@ class BlockProcessor:
             'payload': copied_data_state,
             'payload_bytes': init_payload_bytes,
         }
-        if mint_info['type'] == 'NFT' and len(copied_data_state.keys()) > 0:
+        if len(copied_data_state.keys()) > 0:
             self.put_or_delete_state_updates(op_struct, 
                 atomical_id, 
                 mint_info['reveal_location_tx_num'], 
@@ -1269,8 +1263,10 @@ class BlockProcessor:
             hashX = self.coin.hashX_from_script(txout.pk_script)
             value_sats = pack_le_uint64(txout.value)
             put_general_data(b'po' + location, txout.pk_script)
-            self.put_or_delete_state_updates(operations_found_at_inputs, mint_info['atomical_id'], tx_num, tx_hash, output_idx_le, height, 0, False)
-            self.put_or_delete_state_updates(operations_found_at_inputs, mint_info['atomical_id'], tx_num, tx_hash, output_idx_le, height, 1, False)
+            # Only allow state or event updates if it is not immutable
+            if not mint_info.get('$immutable', None):
+                self.put_or_delete_state_updates(operations_found_at_inputs, mint_info['atomical_id'], tx_num, tx_hash, output_idx_le, height, 0, False)
+                self.put_or_delete_state_updates(operations_found_at_inputs, mint_info['atomical_id'], tx_num, tx_hash, output_idx_le, height, 1, False)
             # Only allow NFTs to be sealed.
             # Useful for locking container collections, locking parent realms, and even locking any NFT atomical permanently
             was_sealed = self.put_or_delete_sealed(operations_found_at_inputs, mint_info['atomical_id'], location, False)
@@ -1346,6 +1342,7 @@ class BlockProcessor:
                 scripthash = double_sha256(txout.pk_script)
                 hashX = self.coin.hashX_from_script(txout.pk_script)
                 value_sats = pack_le_uint64(txout.value)
+                # always store event updates because all FT tokens are not $immutable (ie: they can have events added)
                 self.put_or_delete_state_updates(operations_found_at_inputs, atomical_id_of_first_ft, tx_num, tx_hash, output_idx_le, height, 1, False)
 
     def build_put_atomicals_utxo(self, atomical_id, tx_hash, tx, tx_num, out_idx):
@@ -2389,6 +2386,7 @@ class BlockProcessor:
             self.logger.info(f'rollback_spend_atomicals: atomical_id={atomical_id.hex()}, tx_hash={hash_to_hex_str(tx_hash)}')
             hashX = spent_atomical['data'][:HASHX_LEN]
             hashXs.append(hashX)
+            # Just try to delete all states regardless of whether they are immutable or not, just easier this way
             self.put_or_delete_state_updates(operations_found_at_inputs, atomical_id, tx_num, tx_hash, output_index_packed, height, 0, True)
             self.put_or_delete_state_updates(operations_found_at_inputs, atomical_id, tx_num, tx_hash, output_index_packed, height, 1, True)
             self.put_or_delete_sealed(operations_found_at_inputs, atomical_id, location_id, True)
