@@ -61,7 +61,8 @@ from electrumx.lib.util_atomicals import (
     convert_db_mint_info_to_rpc_mint_info_format,
     validate_subrealm_rules_outputs_format,
     calculate_outputs_to_color_for_atomical_ids,
-    build_reverse_output_to_atomical_id_map
+    build_reverse_output_to_atomical_id_map,
+    calculate_latest_state_from_mod_history
 )
 
 import copy
