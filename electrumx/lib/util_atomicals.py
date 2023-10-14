@@ -1173,6 +1173,16 @@ def calculate_latest_state_from_mod_history(mod_history):
     else: 
         return current_object_state
 
+def validate_subrealm_rules_data(subrealms):
+    if not subrealms or not isinstance(subrealms, dict):
+        return None 
+
+    rules_list = subrealms.get('rules', None)
+    if not rules_list or not isinstance(rules_list, list) or len(rules_list) <= 0: 
+        return None
+
+    return validate_rules(rules_list)
+
 # Validate the rules array data for subrealm mints
 def validate_rules(rules):
     if not rules:

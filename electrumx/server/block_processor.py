@@ -62,7 +62,8 @@ from electrumx.lib.util_atomicals import (
     validate_subrealm_rules_outputs_format,
     calculate_outputs_to_color_for_atomical_ids,
     build_reverse_output_to_atomical_id_map,
-    calculate_latest_state_from_mod_history
+    calculate_latest_state_from_mod_history,
+    validate_subrealm_rules_data
 )
 
 import copy
@@ -2433,7 +2434,6 @@ class BlockProcessor:
         cache_mod_history.sort(key=lambda x: x['tx_num'], reverse=True)
         return cache_mod_history
 
-
     # Get a matched price point (if any) for a subrealm name for the parent atomical taking into account the height
     # Recall that the 'modpath' (contract) values will take effect only after 6 blocks have passed after the height in
     # which the update 'modpath' operation was mined.
@@ -2447,15 +2447,7 @@ class BlockProcessor:
         print_applicable_subrealm_log(f'get_applicable_subrealm_mint_rule_by_height: subrealm_mint_mod_history {subrealm_mint_mod_history}')
         latest_state = calculate_latest_state_from_mod_history(subrealm_mint_mod_history)
 
-        subrealms_namespace_element = latest_state.get('subrealms')
-        if not subrealms_namespace_element or not isinstance(subrealms_namespace_element, dict):
-            return None 
-
-        regex_price_point_list = subrealms_namespace_element.get('rules')
-        if not regex_price_point_list or not isinstance(subrealms_namespace_element, list) or len(regex_price_point_list) <= 0: 
-            return None
-
-        regex_price_point_list = validate_rules(regex_price_point_list)
+        regex_price_point_list = validate_subrealm_rules_data(latest_state.get('subrealms', None))
         
         for regex_price_point in regex_price_point_list:
             print_applicable_subrealm_log(f'get_applicable_subrealm_mint_rule_by_height: processing rule item regex_price_point={regex_price_point}')

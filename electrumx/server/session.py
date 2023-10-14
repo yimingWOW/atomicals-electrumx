@@ -1580,14 +1580,15 @@ class ElectrumX(SessionBase):
         def populate_rules_response_struct(parent_atomical_id, struct_to_populate, Verbose):
             current_height = that.session_mgr.bp.height
             subrealm_mint_mod_history = that.session_mgr.bp.get_mod_history(parent_atomical_id, current_height)
-            current_height_rules = calculate_latest_state_from_mod_history(subrealm_mint_mod_history)
+            current_height_latest_state = calculate_latest_state_from_mod_history(subrealm_mint_mod_history)
+            current_height_rules_list = validate_subrealm_rules_data(latest_state.get('subrealms', None))
             nearest_parent_realm_subrealm_mint_allowed = False
             struct_to_populate['nearest_parent_realm_subrealm_mint_rules'] = {
                 'nearest_parent_realm_atomical_id': location_id_bytes_to_compact(parent_atomical_id),
                 'current_height': current_height,
-                'current_height_rules': current_height_rules
+                'current_height_rules': current_height_rules_list
             }
-            if current_height_rules and len(current_height_rules) > 0:
+            if current_height_rules_list and len(current_height_rules_list) > 0:
                 nearest_parent_realm_subrealm_mint_allowed = True
             struct_to_populate['nearest_parent_realm_subrealm_mint_allowed'] = nearest_parent_realm_subrealm_mint_allowed
         #
