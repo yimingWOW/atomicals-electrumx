@@ -1622,7 +1622,7 @@ class ElectrumX(SessionBase):
                 'missing_name_parts': None,
                 'candidates': format_name_type_candidates_to_rpc(latest_all_entries_candidates, self.session_mgr.bp.build_atomical_id_to_candidate_map(latest_all_entries_candidates))
             }
-            populate_rules_response_struct(compact_to_location_id_bytes(nearest_parent_realm_atomical_id), return_struct, height, Verbose)
+            populate_rules_response_struct(compact_to_location_id_bytes(nearest_parent_realm_atomical_id), return_struct, Verbose)
             return {'result': return_struct}
         
         # The number of realms and components do not match, that is because at least the top level realm or intermediate subrealm was found
@@ -1656,7 +1656,7 @@ class ElectrumX(SessionBase):
             'candidates': format_name_type_candidates_to_rpc_for_subrealm(latest_all_entries_candidates, self.session_mgr.bp.build_atomical_id_to_candidate_map(latest_all_entries_candidates))
         }
         if Verbose:
-            populate_rules_response_struct(compact_to_location_id_bytes(nearest_parent_realm_atomical_id), return_struct, height, Verbose)
+            populate_rules_response_struct(compact_to_location_id_bytes(nearest_parent_realm_atomical_id), return_struct, Verbose)
         return {'result': return_struct}
 
     # Perform a search for tickers, containers, and realms  
