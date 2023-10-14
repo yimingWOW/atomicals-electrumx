@@ -39,7 +39,8 @@ from electrumx.lib.util_atomicals import (
     location_id_bytes_to_compact, 
     is_compact_atomical_id,
     format_name_type_candidates_to_rpc_for_subrealm,
-    calculate_latest_state_from_mod_history
+    calculate_latest_state_from_mod_history,
+    validate_subrealm_rules_data
 )
 from electrumx.lib.hash import (HASHX_LEN, Base58Error, hash_to_hex_str,
                                 hex_str_to_hash, sha256, double_sha256)
