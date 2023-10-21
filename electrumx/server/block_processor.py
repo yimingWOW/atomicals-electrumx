@@ -2184,6 +2184,10 @@ class BlockProcessor:
             elif height > self.coin.ATOMICALS_ACTIVATION_HEIGHT:
                 prev_atomicals_block_hash = self.get_general_data_with_cache(b'tt' + pack_le_uint32(height - 1))
                 concatenation_of_tx_hashes_with_valid_atomical_operation = block_header_hash + prev_atomicals_block_hash
+
+        if height == 808079:
+            raise Exception(f'halt')
+            
         # Use local vars for speed in the loops
         undo_info = []
         atomicals_undo_info = []
