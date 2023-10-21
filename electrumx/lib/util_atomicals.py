@@ -1292,29 +1292,55 @@ def build_reverse_output_to_atomical_id_map(atomical_id_to_output_index_map):
             reverse_mapped[out_idx][atomical_id] = atomical_id
     return reverse_mapped 
 
- 
+def create_inverse_map_input_indexes_to_atomicals(ft_atomicals):
+    inverse_map = {}
+    for atomical_id, ft_info in sorted(ft_atomicals.items()):
+        for idx in ft_info['input_indexes']:
+            inverse_map[idx] = inverse_map.get(idx, None) or []
+            inverse_map[idx].append(ft_info)
+    return inverse_map
+
+def sort_ft_atomicals_by_order_of_input_indexes(ft_atomicals):
+    atomical_list = []
+    inversed_map = create_inverse_map_input_indexes_to_atomicals(ft_atomicals)
+    # Track which atomical id has already been placed and should not be put into the resulting list again
+    # This can happen if an atomical exists in multiple input indexes
+    already_placed_atomical_ids = {}
+    for input_index, atomicals_list in sorted(inversed_map.items()):
+        if len(atomicals_list) == 1:
+            if already_placed_atomical_ids.get(atomicals_list[0]['atomical_id'], None):
+                continue
+            # We havent seen the atomical id yet, so add it
+            atomical_list.append({
+                'atomical_id': atomicals_list[0]['atomical_id'],
+                'ft_info': atomicals_list[0]
+            })
+            already_placed_atomical_ids[atomicals_list[0]['atomical_id']] = True
+        else:
+            for atomical_item in sorted(atomicals_list.items()):
+                if already_placed_atomical_ids.get(atomical_item['atomical_id'], None):
+                    continue
+                atomical_list.append({
+                    'atomical_id': atomical_item['atomical_id'],
+                    'ft_info': ft_info
+                })
+                already_placed_atomical_ids[atomical_item['atomical_id']] = True
+    print(f'sort_ft_atomicals_by_order_of_input_indexes ft_atomicals={ft_atomicals} inversed_map={inversed_map}, result_atomical_list={atomical_list}')
+    return atomical_list
+
 # Calculate the colorings of tokens for utxos
 def calculate_outputs_to_color_for_atomical_ids(ft_atomicals, tx_hash, tx):
     num_fts = len(ft_atomicals.keys())
     if num_fts == 0:
         return None, None
-    print(f'calculate_outputs_to_color_for_atomical {num_fts}')
-
-    atomical_list = []
-    for atomical_id, ft_info in sorted(ft_atomicals.items()):
-        atomical_list.append({
-            'atomical_id': atomical_id,
-            'ft_info': ft_info
-        })
-        print(f'calculate_outputs_to_color_for_atomical_ids found_ft_atomical_inputs atomical_id={location_id_bytes_to_compact(atomical_id)}, ft_info={ft_info} tx_hash={hash_to_hex_str(tx_hash)}')
-    
+    print(f'calculate_outputs_to_color_for_atomical {num_fts} {ft_atomicals}')
+    sorted_by_order_of_appearance = sort_ft_atomicals_by_order_of_input_indexes(ft_atomicals)
     print(f'calculate_outputs_to_color_for_atomical ft_atomicals={ft_atomicals}')
-    print(f'calculate_outputs_to_color_for_atomical atomical_list={atomical_list}')
-
+    print(f'calculate_outputs_to_color_for_atomical atomical_list={sorted_by_order_of_appearance}')
     next_start_out_idx = 0
     potential_atomical_ids_to_output_idxs_map = {}
     non_clean_output_slots = False
-    for item in atomical_list:
+    for item in sorted_by_order_of_appearance:
         atomical_id = item['atomical_id']
         v = item['ft_info']['value']
         cleanly_assigned, expected_outputs = assign_expected_outputs_basic(atomical_id, v, tx, next_start_out_idx)
@@ -1342,7 +1368,6 @@ def calculate_outputs_to_color_for_atomical_ids(ft_atomicals, tx_hash, tx):
     else:
         print(f'calculate_outputs_to_color_for_atomical_ids underflow_val potential_atomical_ids_to_output_idxs_map={potential_atomical_ids_to_output_idxs_map}')
         return potential_atomical_ids_to_output_idxs_map, not non_clean_output_slots
-
 
 # Get the candidate name request status for tickers, containers and realms (not subrealms though)
 # Base Status Values:
