@@ -1359,7 +1359,7 @@ def calculate_outputs_to_color_for_atomical_ids(ft_atomicals, tx_hash, tx):
     if non_clean_output_slots:
         print(f'calculate_outputs_to_color_for_atomical_ids non_clean_output_slots {non_clean_output_slots} {ft_atomicals} ')
         potential_atomical_ids_to_output_idxs_map = {}
-        for item in atomical_list:
+        for item in sorted_by_order_of_appearance:
             atomical_id = item['atomical_id']
             cleanly_assigned, expected_outputs = assign_expected_outputs_basic(atomical_id, item['ft_info']['value'], tx, 0)
             potential_atomical_ids_to_output_idxs_map[atomical_id] = expected_outputs
