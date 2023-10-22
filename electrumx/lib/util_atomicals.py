@@ -1070,7 +1070,7 @@ def parse_protocols_operations_from_witness_array(tx, tx_hash):
 def auto_encode_bytes_elements(state):
     if isinstance(state, bytes):
         return {
-            '$d': state.hex(),
+            '$b': state.hex(),
             '$len': sys.getsizeof(state),
             '$auto': True
         }
@@ -1317,7 +1317,7 @@ def sort_ft_atomicals_by_order_of_input_indexes(ft_atomicals):
             })
             already_placed_atomical_ids[atomicals_list[0]['atomical_id']] = True
         else:
-            for atomical_item in sorted(atomicals_list.items()):
+            for atomical_item in sorted(atomicals_list):
                 if already_placed_atomical_ids.get(atomical_item['atomical_id'], None):
                     continue
                 atomical_list.append({
