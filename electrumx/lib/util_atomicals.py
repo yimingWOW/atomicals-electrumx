@@ -1324,7 +1324,7 @@ def sort_ft_atomicals_by_order_of_input_indexes(ft_atomicals):
                     continue
                 atomical_list.append({
                     'atomical_id': atomical_item['atomical_id'],
-                    'ft_info': atomical_item['ft_info']
+                    'ft_info': atomical_item
                 })
                 already_placed_atomical_ids[atomical_item['atomical_id']] = True
     print(f'sort_ft_atomicals_by_order_of_input_indexes ft_atomicals={ft_atomicals} inversed_map={inversed_map}, result_atomical_list={atomical_list}')
