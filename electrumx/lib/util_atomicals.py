@@ -1318,7 +1318,7 @@ def sort_ft_atomicals_by_order_of_input_indexes(ft_atomicals):
             already_placed_atomical_ids[atomicals_list[0]['atomical_id']] = True
         else:
             atomicals_list.sort(key=lambda x: x['atomical_id'])
-            print(f'atomicals_list {atomicals_list}')
+            print(f'atomicals_list greater_than_1 {atomicals_list}')
             for atomical_item in atomicals_list:
                 if already_placed_atomical_ids.get(atomical_item['atomical_id'], None):
                     continue
