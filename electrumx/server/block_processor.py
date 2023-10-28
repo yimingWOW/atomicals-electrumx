@@ -434,7 +434,7 @@ class BlockProcessor:
                          self.atomical_count,
                          self.atomicals_undo_infos, self.atomicals_utxo_cache, self.general_data_cache, self.ticker_data_cache, 
                          self.realm_data_cache, self.subrealm_data_cache, self.subrealmpay_data_cache, self.dmintitem_data_cache, 
-                         self.dmintitempay_data_cache self.container_data_cache, 
+                         self.dmintitempay_data_cache, self.container_data_cache, 
                          self.distmint_data_cache, self.state_data_cache)
 
     async def flush(self, flush_utxos):
@@ -2162,7 +2162,7 @@ class BlockProcessor:
             return atomical 
         # 
         # SUBREALM type fields
-        #
+        # 
         # The method populates all the fields and nothing more needs to be done at this level for subrealms
         self.populate_subrealm_subtype_specific_fields(atomical)
 
