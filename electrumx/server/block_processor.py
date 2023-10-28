@@ -264,6 +264,8 @@ class BlockProcessor:
         self.realm_data_cache = {}          # Caches the realms created
         self.subrealm_data_cache = {}       # Caches the subrealms created
         self.subrealmpay_data_cache = {}    # Caches the subrealmpays created
+        self.dmintitem_data_cache = {}       # Caches the subrealms created
+        self.dmintitempay_data_cache = {}    # Caches the subrealmpays created
         self.container_data_cache = {}      # Caches the containers created
         self.distmint_data_cache = {}       # Caches the distributed mints created
         self.state_data_cache = {}          # Caches the state updates
@@ -431,7 +433,8 @@ class BlockProcessor:
                          self.db_deletes, self.tip,
                          self.atomical_count,
                          self.atomicals_undo_infos, self.atomicals_utxo_cache, self.general_data_cache, self.ticker_data_cache, 
-                         self.realm_data_cache, self.subrealm_data_cache, self.subrealmpay_data_cache, self.container_data_cache, 
+                         self.realm_data_cache, self.subrealm_data_cache, self.subrealmpay_data_cache, self.dmintitem_data_cache, 
+                         self.dmintitempay_data_cache self.container_data_cache, 
                          self.distmint_data_cache, self.state_data_cache)
 
     async def flush(self, flush_utxos):
@@ -572,7 +575,6 @@ class BlockProcessor:
             'atomical_ref': result.get('ref'),
             'type': result['type']
         }
-
         return obj
 
     # Get the expected payment amount and destination for an atomical subrealm
@@ -977,6 +979,37 @@ class BlockProcessor:
 
         return True
     
+     # Create the container dmint entry if requested correctly
+    def create_or_delete_container_dmint_entry_if_requested(self, mint_info, atomicals_spent_at_inputs, height, Delete=False): 
+        parent_container_id, initiated_by_parent = self.get_container_dmint_info(mint_info, atomicals_spent_at_inputs)
+        if parent_container_id:
+            request_dmint = mint_info.get('$request_dmint')
+            self.logger.info(f'create_or_delete_container_dmint_entry_if_requested: request_dmint={request_dmint}')
+            # Also check that there is no candidates already committed earlier than the current one
+            status, atomical_id, candidates = self.get_effective_dmintitem(parent_container_id, request_dmint, height)
+            if status and status == 'verified':
+                self.logger.info(f'create_or_delete_container_dmint_entry_if_requested: verified_already_exists, parent_container_id {parent_container_id}, request_dmint={request_dmint} ')
+                # Do not attempt to mint subrealm if there is one verified already
+                return False
+            if Delete:
+                self.delete_name_element_template(b'codmt', parent_container_id, request_dmint, mint_info['commit_tx_num'], mint_info['id'], self.dmintitem_data_cache)
+            else:
+                self.put_name_element_template(b'codmt', parent_container_id, request_dmint, mint_info['commit_tx_num'], mint_info['id'], self.dmintitem_data_cache)
+            # If it was initiated by the parent, then there is no expected seperate payment and the mint itself is considered the payment
+            # Therefore add the current mint tx as the payment
+            if initiated_by_parent:
+                self.logger.info(f'create_or_delete_container_dmint_entry_if_requested: initiated_by_parent={initiated_by_parent}, mint_info={mint_info}')
+                # Add the b'01' flag to indicate it was initiated by the parent
+                if Delete:
+                    # Add the b'01' flag to indicate it was initiated by the parent
+                    self.delete_container_dmint_pay(mint_info['id'], mint_info['reveal_location_tx_num'], mint_info['reveal_location'] + b'01')
+                else:
+                    self.put_container_dmint_pay(mint_info['id'], mint_info['reveal_location_tx_num'], mint_info['reveal_location'] + b'01')
+            else: 
+                self.logger.info(f'create_or_delete_container_dmint_entry_if_requested: not_initiated_by_parent, mint_info={mint_info}')
+
+        return True
+
     # Check for the payment and parent information for a subrealm mint request
     # This information is used to determine how to put and delete the record in the index
     def get_subrealm_parent_realm_info(self, mint_info, atomicals_spent_at_inputs): 
@@ -1008,6 +1041,14 @@ class BlockProcessor:
         self.logger.info(f'get_subrealm_parent_realm_info claim_type_is_could_be_direct {mint_info}')
         return parent_realm_id, initiated_by_parent
  
+    # Check for the payment and parent information for a container dmint request
+    # This information is used to determine how to put and delete the record in the index
+    def get_container_dmint_info(self, mint_info, atomicals_spent_at_inputs): 
+        if not is_valid_container_string_name(mint_info.get('$request_dmint')):
+            return None, None
+            
+        return None, None
+
     # Check whether to create an atomical NFT/FT 
     # Validates the format of the detected input operation and then checks the correct extra data is valid
     # such as realm, container, ticker, etc. Only succeeds if the appropriate names can be assigned
@@ -1073,6 +1114,8 @@ class BlockProcessor:
         if mint_info.get('$request_container'):
             is_name_type = True 
         if mint_info.get('$request_ticker'):
+            is_name_type = True 
+        if mint_info.get('$request_dmint'):
             is_name_type = True  
 
         # Too late to reveal, fail to mint then
@@ -1091,6 +1134,17 @@ class BlockProcessor:
                     self.logger.info(f'create_or_delete_atomical: found invalid $parent_realm for $request_realm and therefore returned FALSE in Transaction {hash_to_hex_str(tx_hash)}. Skipping...') 
                     return None
 
+            # Also handle the special case of a dmint item and the container it is trying to mint 
+            # Ensure that the container $request_dmint is a valid atomical container
+            if mint_info.get('$request_dmint'):
+                dmint_container = mint_info.get('$request_dmint')
+                # First get the container
+                # Also check that there is no candidates already committed earlier than the current one
+                status, atomical_id, candidates = self.get_effective_container(dmint_container, height)
+                if status != 'verified':
+                    self.logger.info(f'create_or_delete_atomical: found invalid $request_dmint container {dmint_container} is not yet verified returned FALSE in Transaction {hash_to_hex_str(tx_hash)}. Skipping...') 
+                    return None
+
             # Ensure that the creates are noops or successful
             if not self.create_or_delete_realm_entry_if_requested(mint_info, height, Delete):
                 return None
@@ -1099,6 +1153,9 @@ class BlockProcessor:
                 return None
 
             if not self.create_or_delete_subrealm_entry_if_requested(mint_info, atomicals_spent_at_inputs, height, Delete):
+                return None
+
+            if not self.create_or_delete_container_dmint_entry_if_requested(mint_info, atomicals_spent_at_inputs, height, Delete):
                 return None
 
             if not Delete:
@@ -1566,6 +1623,66 @@ class BlockProcessor:
                     'cache': True
                 })
         db_entries = self.db.get_name_entries_template(db_prefix, parent_realm_id + subrealm_name_enc + pack_le_uint16(len(subrealm_name_enc)))
+        all_entries.extend(db_entries)
+        all_entries.sort(key=lambda x: x['tx_num'])
+        if len(all_entries) == 0:
+            return None, None, [] 
+        settled_status = None
+        leading_candidate = None
+        for entry in all_entries:
+            atomical_id = entry['value']
+            mint_info = self.get_atomicals_id_mint_info(atomical_id)
+            # Sanity check to make sure it matches
+            assert(mint_info['commit_tx_num'] == entry['tx_num'])
+            # Get any payments (correct and valid or even premature, just get them all for now)
+            payment_entry = self.db.get_earliest_subrealm_payment(atomical_id)
+            # If the current candidate doesn't have a payment entry and the MINT_SUBREALM_COMMIT_PAYMENT_DELAY_BLOCKS has passed
+            # Then we know the candidate is expired and invalid
+            if mint_info['commit_height'] <= current_height - MINT_SUBREALM_COMMIT_PAYMENT_DELAY_BLOCKS:
+                if payment_entry: 
+                    # Verified and settled fully
+                    return 'verified', atomical_id, all_entries
+                # Skip because the payment window has elapsed and no payment was found
+                continue
+            # If we got this far it means we are in a potential payment window (potential because the applicable_rule could be invalid)
+            # ...
+            # A special case is that if the MINT_REALM_CONTAINER_TICKER_COMMIT_REVEAL_DELAY_BLOCKS elapsed, and a payment was made in the window
+            # Then we know no one else can take the subrealm, therefore we consider it verified immediately in the payment window
+            if payment_entry and mint_info['commit_height'] <= current_height - MINT_REALM_CONTAINER_TICKER_COMMIT_REVEAL_DELAY_BLOCKS:
+                return 'verified', atomical_id, all_entries
+            
+            # Even though a payment was made, we are not after the MINT_REALM_CONTAINER_TICKER_COMMIT_REVEAL_DELAY_BLOCKS to say conclusively that it is verified
+            if payment_entry: 
+                return 'pending', atomical_id, all_entries
+
+            # If we got this far then it means we are within a potential payment window, with no payment yet made
+            # But we do not want to tell the user it is 'pending_awaiting_payment' until at least MINT_REALM_CONTAINER_TICKER_COMMIT_REVEAL_DELAY_BLOCKS blocks has
+            # passed, because someone else may have committed the same name and hasn't revealed yet, therefore check which case it is
+            if mint_info['commit_height'] <= current_height - MINT_REALM_CONTAINER_TICKER_COMMIT_REVEAL_DELAY_BLOCKS:
+                return 'pending_awaiting_payment', atomical_id, all_entries
+            else: 
+                # Just indicate it is pending
+                return 'pending', atomical_id, all_entries
+
+        # If we fell off to the end it means there are no pending candidates
+        return None, None, all_entries
+
+    # Get the effective container dmint item
+    def get_effective_container_dmint_item(self, container_id, dmint_item_id, height):
+        current_height = height
+        db_prefix = b'codmt'
+        # Get the effective name entries from the database
+        all_entries = []
+        dmint_item_id_enc = dmint_item_id.encode()
+        cached_dmint_item_id_candidates = self.dmint_item_data_cache.get(db_prefix + container_id + dmint_item_id_enc + pack_le_uint16(len(dmint_item_id_enc)))
+        if cached_dmint_item_id_candidates and len(cached_dmint_item_id_candidates) > 0:
+            for tx_num, value in cached_dmint_item_id_candidates.items():
+                all_entries.append({
+                    'value': value,
+                    'tx_num': tx_num,
+                    'cache': True
+                })
+        db_entries = self.db.get_name_entries_template(db_prefix, container_id + dmint_item_id_enc + pack_le_uint16(len(dmint_item_id_enc)))
         all_entries.extend(db_entries)
         all_entries.sort(key=lambda x: x['tx_num'])
         if len(all_entries) == 0:

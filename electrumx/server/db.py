@@ -88,6 +88,10 @@ class FlushData:
     subrealm_adds = attr.ib()           # type: Dict[bytes, Dict[int, bytes]
     # subrealmpay_adds maps atomical_id to tx_num ints, which then map onto payment_outpoints
     subrealmpay_adds = attr.ib()           # type: Dict[bytes, Dict[int, bytes]
+    # dmintitem maps parent_container_id + item id name to tx_num ints, which then map onto an atomical_id
+    dmintitem_adds = attr.ib()              # type: Dict[bytes, Dict[int, bytes]
+    # dmintitempay_adds maps atomical_id to tx_num ints, which then map onto payment_outpoints
+    dmintitempay_adds = attr.ib()           # type: Dict[bytes, Dict[int, bytes]
     # distmint_adds tracks the b'gi' which is the initial distributed mint location tracked to determine if any more mints are allowed
     # It maps atomical_id (of the dft deploy token mint) to location_ids and then the details of the scripthash+value_sats of the mint        
     distmint_adds = attr.ib()           # type: Dict[bytes, Dict[bytes, bytes]
@@ -395,6 +399,8 @@ class DB:
         assert not flush_data.realm_adds
         assert not flush_data.subrealm_adds
         assert not flush_data.subrealmpay_adds
+        assert not flush_data.dmintitem_adds
+        assert not flush_data.dmintitempay_adds
         assert not flush_data.container_adds
         assert not flush_data.distmint_adds
         assert not flush_data.state_adds
@@ -566,6 +572,22 @@ class DB:
             for tx_num, pay_outpoint in v.items():
                 batch_put(key + pack_le_uint64(tx_num), pay_outpoint)
         flush_data.subrealmpay_adds.clear()
+
+        # dmint item data adds
+        # Dmint items are grouped by parent container id and item id name and distinguished by commit_tx_num
+        # The earliest commit_tx_num is the first-seen registration of the item
+        batch_put = batch.put
+        for key, v in flush_data.dmintitem_adds.items():
+            for tx_num, atomical_id in v.items():
+                batch_put(key + pack_le_uint64(tx_num), atomical_id)
+        flush_data.dmintitem_adds.clear()
+
+        # dmint item pay data adds
+        batch_put = batch.put
+        for key, v in flush_data.dmintitempay_adds.items():
+            for tx_num, pay_outpoint in v.items():
+                batch_put(key + pack_le_uint64(tx_num), pay_outpoint)
+        flush_data.dmintitempay_adds.clear()
 
         # New UTXOs
         batch_put = batch.put
