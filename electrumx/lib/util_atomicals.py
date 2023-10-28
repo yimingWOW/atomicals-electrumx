@@ -496,7 +496,7 @@ def get_mint_info_op_factory(coin, tx, tx_hash, op_found_struct, atomicals_spent
     subrealm = mint_info['args'].get('request_subrealm')
     container = mint_info['args'].get('request_container')
     ticker = mint_info['args'].get('request_ticker')
-    dmint = mint_info['args'].get('request_dmint')
+    dmitem = mint_info['args'].get('request_dmitem')
     if realm:
         request_counter += 1
         is_name_type_require_bitwork = True
@@ -508,7 +508,7 @@ def get_mint_info_op_factory(coin, tx, tx_hash, op_found_struct, atomicals_spent
     if ticker:
         request_counter += 1
         is_name_type_require_bitwork = True
-    if dmint:
+    if dmitem:
         request_counter += 1
     if request_counter > 1:
         print(f'Ignoring mint due to multiple requested name types {tx_hash}')
@@ -557,7 +557,7 @@ def get_mint_info_op_factory(coin, tx, tx_hash, op_found_struct, atomicals_spent
         realm = mint_info['args'].get('request_realm')
         subrealm = mint_info['args'].get('request_subrealm')
         container = mint_info['args'].get('request_container')
-        dmint = mint_info['args'].get('request_dmint')
+        dmitem = mint_info['args'].get('request_dmitem')
         if isinstance(realm, str):
             if is_valid_realm_string_name(realm):
                 mint_info['$request_realm'] = realm
@@ -612,23 +612,18 @@ def get_mint_info_op_factory(coin, tx, tx_hash, op_found_struct, atomicals_spent
             # Containers are not allowed to be immutable
             if is_immutable:
                 return None, None
-        elif isinstance(dmint, str):
-            # Dmints apply to specific containers
-            if is_valid_container_string_name(dmint):
-                # The parent realm id is in a compact form string to make it easier for users and developers
-                # Only store the details if the pid is also set correctly
-                dmint_item_id = mint_info['args'].get('dmint_item_id')
-                if not isinstance(item_id, str):
-                    print(f'NFT request_dmint dmint_item_id is not a string {tx_hash}, {item_id}. Skipping...')
-                    return None, None
-
-                mint_info['$dmint_item_id'] = item_id
-                mint_info['$request_dmint'] = dmint
-                
-            else: 
-                print(f'NFT request_dmint is invalid {tx_hash}, {dmint}, {dmint_item_id}. Skipping...')
+        elif isinstance(dmitem, str):
+            # The parent container id is in a compact form string to make it easier for users and developers
+            parent_container_id_compact = mint_info['args'].get('parent_container')
+            if not isinstance(parent_container_id_compact, str) or not is_compact_atomical_id(parent_container_id_compact):
+                print(f'NFT request_dmitem parent_container is invalid {tx_hash}, {parent_container_id_compact}. Skipping...')
                 return None, None 
 
+            mint_info['$request_dmitem'] = subrealm
+            # Save in the compact form to make it easier to understand for developers and users
+            # It requires an extra step to convert, but it makes it easier to understand the format
+            mint_info['$parent_container'] = parent_container_id_compact
+         
             # Dmints are allowed to be immutable
             if is_immutable:
                 mint_info['$immutable'] = True 

@@ -949,7 +949,7 @@ class BlockProcessor:
         return True 
  
     # Create the subrealm entry if requested correctly
-    def create_or_delete_subrealm_entry_if_requested(self, mint_info, atomicals_spent_at_inputs, height, Delete=False): 
+    def create_or_delete_subrealm_entry_if_requested(self, mint_info, atomicals_spent_at_inputs, height, Delete): 
         parent_realm_id, initiated_by_parent = self.get_subrealm_parent_realm_info(mint_info, atomicals_spent_at_inputs)
         if parent_realm_id:
             request_subrealm = mint_info.get('$request_subrealm')
@@ -980,35 +980,8 @@ class BlockProcessor:
         return True
     
      # Create the container dmint entry if requested correctly
-    def create_or_delete_container_dmint_entry_if_requested(self, mint_info, atomicals_spent_at_inputs, height, Delete=False): 
-        parent_container_id, initiated_by_parent = self.get_container_dmint_info(mint_info, atomicals_spent_at_inputs)
-        if parent_container_id:
-            request_dmint = mint_info.get('$request_dmint')
-            self.logger.info(f'create_or_delete_container_dmint_entry_if_requested: request_dmint={request_dmint}')
-            # Also check that there is no candidates already committed earlier than the current one
-            status, atomical_id, candidates = self.get_effective_dmintitem(parent_container_id, request_dmint, height)
-            if status and status == 'verified':
-                self.logger.info(f'create_or_delete_container_dmint_entry_if_requested: verified_already_exists, parent_container_id {parent_container_id}, request_dmint={request_dmint} ')
-                # Do not attempt to mint subrealm if there is one verified already
-                return False
-            if Delete:
-                self.delete_name_element_template(b'codmt', parent_container_id, request_dmint, mint_info['commit_tx_num'], mint_info['id'], self.dmintitem_data_cache)
-            else:
-                self.put_name_element_template(b'codmt', parent_container_id, request_dmint, mint_info['commit_tx_num'], mint_info['id'], self.dmintitem_data_cache)
-            # If it was initiated by the parent, then there is no expected seperate payment and the mint itself is considered the payment
-            # Therefore add the current mint tx as the payment
-            if initiated_by_parent:
-                self.logger.info(f'create_or_delete_container_dmint_entry_if_requested: initiated_by_parent={initiated_by_parent}, mint_info={mint_info}')
-                # Add the b'01' flag to indicate it was initiated by the parent
-                if Delete:
-                    # Add the b'01' flag to indicate it was initiated by the parent
-                    self.delete_container_dmint_pay(mint_info['id'], mint_info['reveal_location_tx_num'], mint_info['reveal_location'] + b'01')
-                else:
-                    self.put_container_dmint_pay(mint_info['id'], mint_info['reveal_location_tx_num'], mint_info['reveal_location'] + b'01')
-            else: 
-                self.logger.info(f'create_or_delete_container_dmint_entry_if_requested: not_initiated_by_parent, mint_info={mint_info}')
-
-        return True
+    def create_or_delete_dmitem_entry_if_requested(self, mint_info, height, Delete): 
+        return False
 
     # Check for the payment and parent information for a subrealm mint request
     # This information is used to determine how to put and delete the record in the index
@@ -1044,7 +1017,7 @@ class BlockProcessor:
     # Check for the payment and parent information for a container dmint request
     # This information is used to determine how to put and delete the record in the index
     def get_container_dmint_info(self, mint_info, atomicals_spent_at_inputs): 
-        if not is_valid_container_string_name(mint_info.get('$request_dmint')):
+        if not is_valid_container_string_name(mint_info.get('$request_dmitem')):
             return None, None
             
         return None, None
@@ -1115,7 +1088,7 @@ class BlockProcessor:
             is_name_type = True 
         if mint_info.get('$request_ticker'):
             is_name_type = True 
-        if mint_info.get('$request_dmint'):
+        if mint_info.get('$request_dmitem'):
             is_name_type = True  
 
         # Too late to reveal, fail to mint then
@@ -1135,14 +1108,13 @@ class BlockProcessor:
                     return None
 
             # Also handle the special case of a dmint item and the container it is trying to mint 
-            # Ensure that the container $request_dmint is a valid atomical container
-            if mint_info.get('$request_dmint'):
-                dmint_container = mint_info.get('$request_dmint')
-                # First get the container
-                # Also check that there is no candidates already committed earlier than the current one
-                status, atomical_id, candidates = self.get_effective_container(dmint_container, height)
-                if status != 'verified':
-                    self.logger.info(f'create_or_delete_atomical: found invalid $request_dmint container {dmint_container} is not yet verified returned FALSE in Transaction {hash_to_hex_str(tx_hash)}. Skipping...') 
+            # Ensure that the container $request_dmitem is a valid atomical container
+            if mint_info.get('$request_dmitem'):
+                parent_atomical_id_compact = mint_info['$parent_container']
+                parent_atomical_id = compact_to_location_id_bytes(parent_atomical_id_compact)
+                parent_atomical_mint_info = self.get_atomicals_id_mint_info(parent_atomical_id)
+                if not parent_atomical_mint_info:
+                    self.logger.info(f'create_or_delete_atomical: found invalid $parent_container for $request_dmitem and therefore returned FALSE in Transaction {hash_to_hex_str(tx_hash)}. Skipping...') 
                     return None
 
             # Ensure that the creates are noops or successful
@@ -1155,7 +1127,7 @@ class BlockProcessor:
             if not self.create_or_delete_subrealm_entry_if_requested(mint_info, atomicals_spent_at_inputs, height, Delete):
                 return None
 
-            if not self.create_or_delete_container_dmint_entry_if_requested(mint_info, atomicals_spent_at_inputs, height, Delete):
+            if not self.create_or_delete_dmitem_entry_if_requested(mint_info, height, Delete):
                 return None
 
             if not Delete:
@@ -1695,7 +1667,7 @@ class BlockProcessor:
             # Sanity check to make sure it matches
             assert(mint_info['commit_tx_num'] == entry['tx_num'])
             # Get any payments (correct and valid or even premature, just get them all for now)
-            payment_entry = self.db.get_earliest_subrealm_payment(atomical_id)
+            payment_entry = self.db.get_earliest_container_dmint_payment(atomical_id)
             # If the current candidate doesn't have a payment entry and the MINT_SUBREALM_COMMIT_PAYMENT_DELAY_BLOCKS has passed
             # Then we know the candidate is expired and invalid
             if mint_info['commit_height'] <= current_height - MINT_SUBREALM_COMMIT_PAYMENT_DELAY_BLOCKS:
@@ -2069,6 +2041,46 @@ class BlockProcessor:
         pid = compact_to_location_id_bytes(pid_compact)  
         height = self.height
         status, candidate_id, raw_candidate_entries = self.get_effective_subrealm(pid, request_subrealm, height)
+        atomical['subtype'] = 'request_subrealm' # Will change to 'subrealm' if it is found to be valid
+        # Populate the requested full realm name
+        self.populate_request_full_realm_name(atomical, pid, request_subrealm)
+        # Build the applicable rule set mapping of atomical_id to the rule that will need to be matched and payment made 
+        # We use this information to display to each candidate what rule would apply to their mint and how much to pay and by which block height
+        # they must submit their payment (assuming they are the leading candidate)
+        applicable_rule_map = self.build_applicable_rule_map(raw_candidate_entries, pid, request_subrealm)
+        atomical['$subrealm_candidates'] = format_name_type_candidates_to_rpc_for_subrealm(raw_candidate_entries, applicable_rule_map)
+        atomical['$request_subrealm_status'] = get_subrealm_request_candidate_status(self.height, atomical, status, candidate_id) 
+        # Populate the request specific fields
+        atomical['$request_subrealm'] = atomical['mint_info'].get('$request_subrealm')
+        atomical['$parent_realm'] = atomical['mint_info'].get('$parent_realm')
+
+        if status == 'verified' and candidate_id == atomical['atomical_id']:
+            atomical['subtype'] = 'subrealm'
+            atomical['$subrealm'] = request_subrealm
+            atomical['$parent_realm'] = pid_compact
+            # Resolve the parent realm to get the parent realm path and construct the full_realm_name
+            parent_realm = self.get_base_mint_info_by_atomical_id(pid)
+            if not parent_realm:
+                atomical_id = atomical['mint_info']['id']
+                raise IndexError(f'populate_subrealm_subtype_specific_fields: parent realm not found atomical_id={atomical_id}, parent_realm={parent_realm}')
+            # The parent full realm name my not be populated if it's still in the mempool or it's not settled realm request yet
+            # Therefore check to make sure it exists before we can populate this subrealms full realm name 
+            self.logger.info(f'populate_subrealm_subtype_specific_fields: parent_realm={parent_realm}')
+            if parent_realm.get('$full_realm_name'):
+                atomical['$full_realm_name'] = parent_realm['$full_realm_name'] + '.' + request_subrealm
+            return request_subrealm, True
+        return request_subrealm, False
+
+    # Populate the specific container dmint item request type information
+    def populate_dmint_item_subtype_specific_fields(self, atomical):
+        # Check if the effective subrealm is for the current atomical and also resolve it's parent
+        request_dmint = atomical['mint_info'].get('$request_dmint')
+        if not request_dmint: 
+            return None, None
+        pid_compact = atomical['mint_info']['$parent_realm'] 
+        pid = compact_to_location_id_bytes(pid_compact)  
+        height = self.height
+        status, candidate_id, raw_candidate_entries = self.get_effective_container_dmint_item(pid, request_subrealm, height)
         atomical['subtype'] = 'request_subrealm' # Will change to 'subrealm' if it is found to be valid
         # Populate the requested full realm name
         self.populate_request_full_realm_name(atomical, pid, request_subrealm)

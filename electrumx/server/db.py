@@ -1226,6 +1226,24 @@ class DB:
             return payments[0]
         return None 
     
+    def get_earliest_container_dmint_payment(self, atomical_id):
+        key_atomical_id = b'codmt' + atomical_id
+        payments = []
+        for pay_key, pay_value in self.utxo_db.iterator(prefix=key_atomical_id):
+            tx_numb = pay_key[-8:]
+            tx_num, = unpack_le_uint64(tx_numb)
+            outpoint_of_payment = pay_value[:36]
+            payments.append({
+                'tx_num': tx_num,
+                'payment_tx_outpoint': outpoint_of_payment,
+                'pay_init_type': pay_value[36:]
+            })
+        payments.sort(key=lambda x: x['tx_num'])
+        if len(payments) > 0:
+            self.logger.info(f'get_earliest_container_dmint_payment {atomical_id} {payments}')
+            return payments[0]
+        return None 
+
     # Get general data by key
     def get_general_data(self, key):
         return self.utxo_db.get(key)
