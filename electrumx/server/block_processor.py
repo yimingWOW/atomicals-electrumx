@@ -1989,6 +1989,19 @@ class BlockProcessor:
         if parent_full_realm_name: 
             atomical['$request_full_realm_name'] = parent_full_realm_name + '.' + request_subrealm
         return atomical
+    
+    # Populate the requested parent container name to provide context for a dmitem request
+    def populate_request_parent_container_name(self, atomical, pid):
+        # Resolve the parent container to get the parent container path and construct the parent container name
+        parent_container = self.get_base_mint_info_by_atomical_id(pid)
+        if not parent_container:
+            atomical_id = atomical['mint_info']['id']
+            raise IndexError(f'populate_request_parent_container_name: parent realm not found atomical_id={atomical_id}, parent_container={parent_container}')
+        self.logger.info(f'populate_request_parent_container_name: parent_container={parent_container}')
+        parent_container_name = parent_container.get('$container')
+        if parent_container_name: 
+            atomical['$request_parent_container_name'] = parent_container_name
+        return atomical
 
     # Build a map of applicable rules for each candidate
     def build_applicable_rule_map(self, all_entries, arg_pid, arg_request_subrealm):
@@ -2072,44 +2085,41 @@ class BlockProcessor:
         return request_subrealm, False
 
     # Populate the specific container dmint item request type information
-    def populate_dmint_item_subtype_specific_fields(self, atomical):
-        # Check if the effective subrealm is for the current atomical and also resolve it's parent
-        request_dmint = atomical['mint_info'].get('$request_dmint')
-        if not request_dmint: 
+    def populate_dmitem_subtype_specific_fields(self, atomical):
+        # Check if the effective dmitem is for the current atomical and also resolve it's parent
+        request_dmitem = atomical['mint_info'].get('$request_dmitem')
+        if not request_dmitem: 
             return None, None
-        pid_compact = atomical['mint_info']['$parent_realm'] 
+        pid_compact = atomical['mint_info']['$parent_container'] 
         pid = compact_to_location_id_bytes(pid_compact)  
         height = self.height
         status, candidate_id, raw_candidate_entries = self.get_effective_container_dmint_item(pid, request_subrealm, height)
-        atomical['subtype'] = 'request_subrealm' # Will change to 'subrealm' if it is found to be valid
-        # Populate the requested full realm name
-        self.populate_request_full_realm_name(atomical, pid, request_subrealm)
+        atomical['subtype'] = 'request_dmitem' # Will change to 'dmitem' if it is found to be valid
+        # Populate the requested parent container name
+        self.populate_request_parent_container_name(atomical, pid)
         # Build the applicable rule set mapping of atomical_id to the rule that will need to be matched and payment made 
         # We use this information to display to each candidate what rule would apply to their mint and how much to pay and by which block height
         # they must submit their payment (assuming they are the leading candidate)
-        applicable_rule_map = self.build_applicable_rule_map(raw_candidate_entries, pid, request_subrealm)
-        atomical['$subrealm_candidates'] = format_name_type_candidates_to_rpc_for_subrealm(raw_candidate_entries, applicable_rule_map)
-        atomical['$request_subrealm_status'] = get_subrealm_request_candidate_status(self.height, atomical, status, candidate_id) 
+        applicable_rule_map = self.build_applicable_rule_map(raw_candidate_entries, pid, request_dmitem)
+        atomical['$dmitem_candidates'] = format_name_type_candidates_to_rpc_for_subrealm(raw_candidate_entries, applicable_rule_map)
+        atomical['$request_dmitem_status'] = get_dmitem_request_candidate_status(self.height, atomical, status, candidate_id) 
         # Populate the request specific fields
-        atomical['$request_subrealm'] = atomical['mint_info'].get('$request_subrealm')
-        atomical['$parent_realm'] = atomical['mint_info'].get('$parent_realm')
-
+        atomical['$request_dmitem'] = atomical['mint_info'].get('$request_dmitem')
+        atomical['$parent_container'] = atomical['mint_info'].get('$parent_container')
         if status == 'verified' and candidate_id == atomical['atomical_id']:
-            atomical['subtype'] = 'subrealm'
-            atomical['$subrealm'] = request_subrealm
-            atomical['$parent_realm'] = pid_compact
-            # Resolve the parent realm to get the parent realm path and construct the full_realm_name
-            parent_realm = self.get_base_mint_info_by_atomical_id(pid)
-            if not parent_realm:
+            atomical['subtype'] = 'dmitem'
+            atomical['$dmitem'] = request_dmitem
+            atomical['$parent_container'] = pid_compact
+            # Resolve the parent container to get the parent container path and construct the full_realm_name
+            parent_container = self.get_base_mint_info_by_atomical_id(pid)
+            if not parent_container:
                 atomical_id = atomical['mint_info']['id']
-                raise IndexError(f'populate_subrealm_subtype_specific_fields: parent realm not found atomical_id={atomical_id}, parent_realm={parent_realm}')
+                raise IndexError(f'populate_dmitem_subtype_specific_fields: parent container not found atomical_id={atomical_id}, parent_container={parent_container}')
             # The parent full realm name my not be populated if it's still in the mempool or it's not settled realm request yet
             # Therefore check to make sure it exists before we can populate this subrealms full realm name 
-            self.logger.info(f'populate_subrealm_subtype_specific_fields: parent_realm={parent_realm}')
-            if parent_realm.get('$full_realm_name'):
-                atomical['$full_realm_name'] = parent_realm['$full_realm_name'] + '.' + request_subrealm
-            return request_subrealm, True
-        return request_subrealm, False
+            self.logger.info(f'populate_dmitem_subtype_specific_fields: parent_container={parent_container}')
+            return request_dmitem, True
+        return request_dmitem, False
 
     # Populate the subtype information such as realms, subrealms, containers and tickers
     # An atomical can have a naming element if it passed all the validity checks of the assignment
@@ -2155,6 +2165,12 @@ class BlockProcessor:
         #
         # The method populates all the fields and nothing more needs to be done at this level for subrealms
         self.populate_subrealm_subtype_specific_fields(atomical)
+
+        # 
+        # DMITEM type fields
+        #
+        # The method populates all the fields and nothing more needs to be done at this level for dmitems
+        self.populate_dmitem_subtype_specific_fields(atomical)
         return atomical 
 
     # Create a distributed mint output as long as the rules are satisfied
