@@ -595,7 +595,6 @@ def get_mint_info_op_factory(coin, tx, tx_hash, op_found_struct, atomicals_spent
             # It requires an extra step to convert, but it makes it easier to understand the format
             mint_info['$parent_realm'] = parent_realm_id_compact
         elif dmitem:
-            print(f'NFT dmitem_checking')
             if not isinstance(dmitem, str) or len(dmitem) == 0:
                 print(f'NFT request_dmitem is invalid {hash_to_hex_str(tx_hash)}, {dmitem}. Skipping...')
                 return None, None
@@ -609,13 +608,11 @@ def get_mint_info_op_factory(coin, tx, tx_hash, op_found_struct, atomicals_spent
             # Save in the compact form to make it easier to understand for developers and users
             # It requires an extra step to convert, but it makes it easier to understand the format
             mint_info['$parent_container'] = parent_container_id_compact
-            print(f'NFT dmitem_checking_parent mint_info={mint_info}')
         elif container:
             if not isinstance(container, str) or not is_valid_container_string_name(container):
                 print(f'NFT request_container is invalid {hash_to_hex_str(tx_hash)}, {container}. Skipping...')
                 return None, None
             mint_info['$request_container'] = container
-
         # containers, realms or subrealms cannot be immutable
         if is_immutable:
             if container or realm or subrealm:
