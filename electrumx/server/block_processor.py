@@ -42,7 +42,7 @@ from electrumx.lib.util_atomicals import (
     is_valid_container_string_name, 
     is_op_return_payment_marker_atomical_id, 
     pad_bytes64, 
-    MAX_SUBREALM_RULE_SIZE_LEN,
+    MAX_SUBNAME_RULE_SIZE_LEN,
     SUBREALM_MINT_PATH,
     SUBNAME_MIN_PAYMENT_DUST_LIMIT,
     DMINT_PATH,

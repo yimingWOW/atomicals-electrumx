@@ -74,10 +74,10 @@ ATOMICALS_ENVELOPE_MARKER_BYTES = '0461746f6d'
 # Limit the smallest payment amount allowed for a subrealm
 SUBNAME_MIN_PAYMENT_DUST_LIMIT = 0 # It can be possible to do free
 
-# Maximum size of the rules of a subrealm mint rule set array
-MAX_SUBREALM_RULE_SIZE_LEN = 100000
-# Maximum number of subrealm minting rules allowed
-MAX_SUBREALM_RULE_ENTRIES = 100
+# Maximum size of the rules of a subrealm or container dmint rule set array
+MAX_SUBNAME_RULE_SIZE_LEN = 100000
+# Maximum number of minting rules allowed
+MAX_SUBNAME_RULE_ENTRIES = 100
 
 # Minimum amount in satoshis for a DFT mint operation. Set at satoshi dust of 546
 DFT_MINT_AMOUNT_MIN = 546
@@ -88,7 +88,7 @@ DFT_MINT_AMOUNT_MAX = 100000000
 # The minimum number of DFT max_mints. Set at 1
 DFT_MINT_MAX_MIN_COUNT = 1
 # The maximum number of DFT max_mints. Set at 200,000 mints mainly for efficieny reasons. Could be expanded in the future
-DFT_MINT_MAX_MAX_COUNT = 200000
+DFT_MINT_MAX_MAX_COUNT = 500000
 
 # This would never change, but we put it as a constant for clarity
 DFT_MINT_HEIGHT_MIN = 0
@@ -595,7 +595,7 @@ def get_mint_info_op_factory(coin, tx, tx_hash, op_found_struct, atomicals_spent
             # It requires an extra step to convert, but it makes it easier to understand the format
             mint_info['$parent_realm'] = parent_realm_id_compact
         elif dmitem:
-            if not isinstance(dmitem, str) or len(dmitem) == 0:
+            if not isinstance(dmitem, str) or len(dmitem) == 0 or len(dmitem) > 64:
                 print(f'NFT request_dmitem is invalid {hash_to_hex_str(tx_hash)}, {dmitem}. Skipping...')
                 return None, None
             # The parent container id is in a compact form string to make it easier for users and developers
@@ -1212,7 +1212,7 @@ def validate_rules(namespace_data):
     if not isinstance(rules, list):
         print_subrealm_calculate_log(f'value is not a list')
         return None # Reject if the rules is not a list
-    if len(rules) <= 0 or len(rules) > MAX_SUBREALM_RULE_ENTRIES:
+    if len(rules) <= 0 or len(rules) > MAX_SUBNAME_RULE_ENTRIES:
         print_subrealm_calculate_log(f'rules must have between 1 and 100 entries')
         return None # Reject since the rules list is empty
     # Now populate the regex price list
@@ -1232,9 +1232,9 @@ def validate_rules(namespace_data):
             print_subrealm_calculate_log(f'regex pattern is not a string')
             return None  
     
-        if len(regex_pattern) > MAX_SUBREALM_RULE_SIZE_LEN or len(regex_pattern) < 1:
+        if len(regex_pattern) > MAX_SUBNAME_RULE_SIZE_LEN or len(regex_pattern) < 1:
             print_subrealm_calculate_log(f'rule empty or too large')
-            return None # Reject if the rule has more than MAX_SUBREALM_RULE_SIZE_LEN chars
+            return None # Reject if the rule has more than MAX_SUBNAME_RULE_SIZE_LEN chars
 
         # Output is the output script that must be paid to mint the subrealm
         outputs = rule_set_entry.get('o')
