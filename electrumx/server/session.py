@@ -1560,6 +1560,7 @@ class ElectrumX(SessionBase):
         if status == 'verified':
             found_atomical_id = candidate_atomical_id
         else: 
+            self.logger.info(f'formatted_entries {formatted_entries}')
             raise RPCError(BAD_REQUEST, f'Container does not exist')
         status, candidate_atomical_id, all_entries = self.session_mgr.bp.get_effective_dmitem(found_atomical_id, item_name, height)
         found_item_atomical_id = None
