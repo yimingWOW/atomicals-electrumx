@@ -36,13 +36,10 @@ from electrumx.lib.util_atomicals import (
     is_proof_of_work_prefix_match,
     format_name_type_candidates_to_rpc_for_subname,
     format_name_type_candidates_to_rpc,
-    is_hex_string,
     pad_bytes_n, 
     has_requested_proof_of_work, 
     is_valid_container_string_name, 
     is_op_return_payment_marker_atomical_id, 
-    pad_bytes64, 
-    MAX_SUBNAME_RULE_SIZE_LEN,
     SUBREALM_MINT_PATH,
     SUBNAME_MIN_PAYMENT_DUST_LIMIT,
     DMINT_PATH,
@@ -51,7 +48,6 @@ from electrumx.lib.util_atomicals import (
     MINT_SUBNAME_COMMIT_PAYMENT_DELAY_BLOCKS, 
     is_valid_dmt_op_format, 
     is_compact_atomical_id, 
-    is_atomical_id_long_form_string, 
     unpack_mint_info, 
     parse_protocols_operations_from_witness_array, 
     location_id_bytes_to_compact, 
@@ -60,7 +56,6 @@ from electrumx.lib.util_atomicals import (
     is_valid_ticker_string, 
     get_mint_info_op_factory,
     convert_db_mint_info_to_rpc_mint_info_format,
-    validate_subrealm_rules_outputs_format,
     calculate_outputs_to_color_for_atomical_ids,
     build_reverse_output_to_atomical_id_map,
     calculate_latest_state_from_mod_history,
@@ -281,7 +276,7 @@ class BlockProcessor:
         # Signalled after backing up during a reorg
         self.backed_up_event = asyncio.Event()
 
-        self.atomicals_id_cache = pylru.lrucache(100000)
+        self.atomicals_id_cache = pylru.lrucache(1000000)
         self.atomicals_rpc_format_cache = pylru.lrucache(100000)
   
     async def run_in_thread_with_lock(self, func, *args):
@@ -662,70 +657,74 @@ class BlockProcessor:
     def get_expected_dmitem_payment_info(self, found_atomical_id_for_potential_dmitem, current_height):
         # Lookup the dmitem atomical to obtain the details of which container parent it is for
         found_atomical_mint_info_for_potential_dmitem = self.get_atomicals_id_mint_info(found_atomical_id_for_potential_dmitem)
-        if found_atomical_mint_info_for_potential_dmitem:
-            # Found the mint information. Use the mint details to determine the parent realm id and name requested
-            # Along with the price that was expected according to the mint reveal height
-            args_dmitem = found_atomical_mint_info_for_potential_dmitem['args'].get('request_dmitem')
-            request_dmitem = found_atomical_mint_info_for_potential_dmitem['$request_dmitem']
-            # Check that $request_dmitem was set because it will only be set if the basic validation succeeded
-            # If it's not set, then the atomical dm item mint was not valid on a basic level and must be rejected
-            if not request_dmitem:
-                self.logger.info(f'get_expected_dmitem_payment_info: not request_dmitem. request_dmitem={request_dmitem}')
-                return None, None, None
-            # Sanity check
-            assert(args_dmitem == request_dmitem)
-
-            # More sanity checks on the formats and validity
-            if isinstance(request_dmitem, str) and len(request_dmitem) > 0:
-                # Validate that the current payment came in before MINT_SUBNAME_COMMIT_PAYMENT_DELAY_BLOCKS after the mint reveal of the atomical
-                # This is done to ensure that payments must be made in a timely fashion or else someone else can claim the subrealm
-                if not is_within_acceptable_blocks_for_sub_item_payment(found_atomical_mint_info_for_potential_dmitem['commit_height'], current_height):
-                    # The reveal_location_height (mint/reveal height) is too old and this payment came in far too late
-                    # Ignore the payment therefore.
-                    self.logger.info(f'get_expected_dmitem_payment_info: not is_within_acceptable_blocks_for_sub_item_payment. request_subrealm={request_subrealm}')
-                    return None, None, None
-                # The parent realm id is in a compact form string to make it easier for users and developers
-                # Only store the details if the pid is also set correctly
-                request_parent_container_id_compact = found_atomical_mint_info_for_potential_dmitem['args'].get('parent_container')
-                parent_container_id_compact = found_atomical_mint_info_for_potential_dmitem.get('$parent_container')
-                parent_container_id = compact_to_location_id_bytes(parent_container_id_compact)
-                assert(request_parent_container_id_compact == parent_container_id_compact)
-                if isinstance(parent_container_id_compact, str) and is_compact_atomical_id(parent_container_id_compact):
-                    # We have a validated potential parent id, now look it up to see if the parent is a valid atomical
-                    found_parent_mint_info = self.get_atomicals_id_mint_info(parent_container_id)
-                    if found_parent_mint_info:
-                        # We have found the parent atomical, which may or may not be a valid realm
-                        # Do the basic check for $request_realm which indicates it succeeded the basic validity checks
-                        args_container = found_parent_mint_info['args'].get('request_container') 
-                        request_container = found_parent_mint_info.get('$request_container') or found_parent_mint_info.get('$request_dmitem')
-                        # One or both was empty and therefore didn't pass the basic checks
-                        # Someone apparently made a payment marker for an invalid parent realm id. They made a mistake, ignoring it..
-                        if not args_container:
-                            self.logger.info(f'get_expected_dmitem_payment_info: not args_realm or not request_dmitem. request_dmitem={request_dmitem}')
-                            return None, None, None
-                        # Make sure it's the right type and format checks pass again just in case
-                        if not isinstance(request_dmitem, str):
-                            self.logger.info(f'get_expected_dmitem_payment_info: not isinstance(request_dmitem, str). request_dmitem={request_dmitem}')
-                            return None, None, None
-
-                        if not found_parent_mint_info.get('$container'):
-                            self.logger.info(f'get_expected_dmitem_payment_info: not container. request_subrealm={request_dmitem}, parent_container_id_compact={parent_container_id_compact}')
-                            return None, None, None
-
-                        # At this point we know we have a valid parent, but because realm allocation is delayed by MINT_REALM_CONTAINER_TICKER_COMMIT_REVEAL_DELAY_BLOCKS
-                        # ... we do not actually know if the parent was awarded the realm or not until the required heights are met
-                        # Nonetheless, someone DID make a payment and referenced the parent by the specific atomical id and therefore we will try to apply to payment
-                        # It does not mean in the end that they actually get the subrealm if they paid the wrong parent. But that's their mistake and was easily avoided
-                        # Here we go and check for the required payment amount and details now...
-                        # We also use the commit_height of the subrealm to determine what price they should be paying
-                        expected_payment_height = found_atomical_mint_info_for_potential_dmitem['commit_height']
-                        matched_price_point, state_at_height = self.get_applicable_rule_by_height(parent_container_id, request_dmitem, expected_payment_height - MINT_SUBNAME_RULES_BECOME_EFFECTIVE_IN_BLOCKS, SUBREALM_MINT_PATH)
-                        if matched_price_point:
-                            self.logger.info(f'get_expected_dmitem_payment_info: matched_price_point={matched_price_point}, request_dmitem={request_dmitem}')
-                            return matched_price_point, parent_container_id, request_dmitem
-        self.logger.info(f'get_expected_dmitem_payment_info: not found_atomical_mint_info_for_potential_dmitem {found_atomical_id_for_potential_dmitem}')
+        if not found_atomical_mint_info_for_potential_dmitem:
+            self.logger.info(f'get_expected_dmitem_payment_info: not found_atomical_mint_info_for_potential_dmitem {found_atomical_id_for_potential_dmitem}')
+            return None, None, None
+        # Found the mint information. Use the mint details to determine the parent realm id and name requested
+        # Along with the price that was expected according to the mint reveal height
+        args_dmitem = found_atomical_mint_info_for_potential_dmitem['args'].get('request_dmitem')
+        request_dmitem = found_atomical_mint_info_for_potential_dmitem['$request_dmitem']
+        # Check that $request_dmitem was set because it will only be set if the basic validation succeeded
+        # If it's not set, then the atomical dm item mint was not valid on a basic level and must be rejected
+        if not request_dmitem:
+            self.logger.info(f'get_expected_dmitem_payment_info: not request_dmitem. request_dmitem={request_dmitem}')
+            return None, None, None
+        # Sanity check
+        assert(args_dmitem == request_dmitem)
+        # More sanity checks on the formats and validity
+        if not isinstance(request_dmitem, str) or len(request_dmitem) == 0:
+            self.logger.info(f'get_expected_dmitem_payment_info: request_dmitem is not a str or is empty {found_atomical_id_for_potential_dmitem} request_dmitem={request_dmitem}')
+            return None, None, None
+        # Validate that the current payment came in before MINT_SUBNAME_COMMIT_PAYMENT_DELAY_BLOCKS after the mint reveal of the atomical
+        # This is done to ensure that payments must be made in a timely fashion or else someone else can claim the subrealm
+        if not is_within_acceptable_blocks_for_sub_item_payment(found_atomical_mint_info_for_potential_dmitem['commit_height'], current_height):
+            # The reveal_location_height (mint/reveal height) is too old and this payment came in far too late
+            # Ignore the payment therefore.
+            self.logger.info(f'get_expected_dmitem_payment_info: not is_within_acceptable_blocks_for_sub_item_payment. request_subrealm={request_subrealm}')
+            return None, None, None
+        # The parent realm id is in a compact form string to make it easier for users and developers
+        # Only store the details if the pid is also set correctly
+        request_parent_container_id_compact = found_atomical_mint_info_for_potential_dmitem['args'].get('parent_container')
+        parent_container_id_compact = found_atomical_mint_info_for_potential_dmitem.get('$parent_container')
+        parent_container_id = compact_to_location_id_bytes(parent_container_id_compact)
+        assert(request_parent_container_id_compact == parent_container_id_compact)
+        if not isinstance(parent_container_id_compact, str) or not is_compact_atomical_id(parent_container_id_compact):
+            self.logger.info(f'get_expected_dmitem_payment_info: parent_container_id_compact not string or compact atomical id {found_atomical_id_for_potential_dmitem} parent_container_id_compact={parent_container_id_compact}')
+            return None, None, None
+        # We have a validated potential parent id, now look it up to see if the parent is a valid atomical
+        found_parent_mint_info = self.get_atomicals_id_mint_info(parent_container_id)
+        if not found_parent_mint_info:
+            self.logger.info(f'get_expected_dmitem_payment_info: not found_parent_mint_info found_atomical_id_for_potential_dmitem={found_atomical_id_for_potential_dmitem}')
+            return None, None, None
+        # We have found the parent atomical, which may or may not be a valid realm
+        # Do the basic check for $request_realm which indicates it succeeded the basic validity checks
+        request_container_and_dmitem = found_parent_mint_info.get('$request_container') or found_parent_mint_info.get('$request_dmitem')
+        # One or both was empty and therefore didn't pass the basic checks
+        # Someone apparently made a payment marker for an invalid parent realm id. They made a mistake, ignoring it..
+        if not request_container_and_dmitem:
+            self.logger.info(f'get_expected_dmitem_payment_info: not request_container_and_dmitem. found_parent_mint_info={found_parent_mint_info} request_dmitem={request_dmitem}')
+            return None, None, None
+        # Make sure it's the right type and format checks pass again just in case
+        if not isinstance(request_dmitem, str):
+            self.logger.info(f'get_expected_dmitem_payment_info: not isinstance(request_dmitem, str). request_dmitem={request_dmitem}')
+            return None, None, None
+        if not found_parent_mint_info.get('$container'):
+            self.logger.info(f'get_expected_dmitem_payment_info: not container. request_subrealm={request_dmitem}, parent_container_id_compact={parent_container_id_compact}')
+            return None, None, None
+        # At this point we know we have a valid parent, but because container allocation is delayed by MINT_REALM_CONTAINER_TICKER_COMMIT_REVEAL_DELAY_BLOCKS
+        # ... we do not actually know if the parent was awarded the container or not until the required heights are met
+        # Nonetheless, someone DID make a payment and referenced the parent by the specific atomical id and therefore we will try to apply to payment
+        # It does not mean in the end that they actually get the subrealm if they paid the wrong parent. But that's their mistake and was easily avoided
+        # Here we go and check for the required payment amount and details now...
+        # We also use the commit_height of the sub name to determine what price they should be paying
+        expected_payment_height = found_atomical_mint_info_for_potential_dmitem['commit_height']
+        matched_price_point, state_at_height_not_used = self.get_applicable_rule_by_height(parent_container_id, request_dmitem, expected_payment_height - MINT_SUBNAME_RULES_BECOME_EFFECTIVE_IN_BLOCKS, SUBREALM_MINT_PATH)
+        if matched_price_point:
+            self.logger.info(f'get_expected_dmitem_payment_info: matched_price_point={matched_price_point}, request_dmitem={request_dmitem}, parent_container_id={parent_container_id}')
+            return matched_price_point, parent_container_id, request_dmitem
+        self.logger.info(f'get_expected_dmitem_payment_info: not matched_price_point request_dmitem={request_dmitem} parent_container_id={parent_container_id} found_atomical_id_for_potential_dmitem={found_atomical_id_for_potential_dmitem}')
         return None, None, None
-
+    
     # Save distributed mint infromation for the atomical
     # Mints are only stored if they are less than the max_mints amount
     def put_decentralized_mint_data(self, atomical_id, location_id, value): 
@@ -1011,10 +1010,8 @@ class BlockProcessor:
         if not request_ticker:
             # No name was requested, consider the operation successful noop
             return True 
-
         if not is_valid_ticker_string(request_ticker):
             return False
-        
         self.logger.info(f'create_or_delete_ticker_entry_if_requested: request_ticker={request_ticker}')
         # Also check that there is no candidates already committed earlier than the current one
         status, atomical_id, candidates = self.get_effective_ticker(request_ticker, height)
@@ -1072,11 +1069,11 @@ class BlockProcessor:
             return True
         return False
     
-    def create_or_delete_dmitem_entry_if_requested(self, mint_info, mint_data_payload, atomicals_spent_at_inputs, height, Delete): 
+    def create_or_delete_dmitem_entry_if_requested(self, mint_info, mint_data_payload, height, Delete): 
         request_dmitem = mint_info.get('$request_dmitem')
         if not request_dmitem:
             return True
-        parent_container_id, mint_initiated_result = self.get_dmitem_parent_container_info(mint_info, mint_data_payload, atomicals_spent_at_inputs, height)
+        parent_container_id, mint_initiated_result = self.get_dmitem_parent_container_info(mint_info, mint_data_payload, height)
         self.logger.info(f'create_or_delete_dmitem_entry_if_requested mint_initiated_result={mint_initiated_result} check_if_bitwork_mint')
         if parent_container_id:
             self.logger.info(f'create_or_delete_dmitem_entry_if_requested: has_parent_container_id request_dmitem={request_dmitem} parent_container_id={parent_container_id}')
@@ -1087,6 +1084,7 @@ class BlockProcessor:
                 # Do not attempt to mint if there is one verified already
                 return False
             if Delete:
+                self.logger.info(f'create_or_delete_dmitem_entry_if_requested: request_dmitem={request_dmitem} mint_bitwork_attempt in Delete mode')
                 self.delete_name_element_template(b'codmt', parent_container_id, request_dmitem, mint_info['commit_tx_num'], mint_info['id'], self.dmitem_data_cache)
             else:
                 self.logger.info(f'create_or_delete_dmitem_entry_if_requested: request_dmitem={request_dmitem} mint_bitwork_attempt')
@@ -1129,12 +1127,10 @@ class BlockProcessor:
                 if mint_initiated_result:
                     return parent_realm_id, mint_initiated_result
             return None, None
-
         # It must be a rule based mint then
         if claim_type != 'rule':
             self.logger.info(f'get_subrealm_parent_realm_info: claim type was not direct or rule, skipping...')
             return None, None
-
         # if we got this far then it means it was not parent initiated and it could require bitwork to proceed
         expected_payment_height = mint_info['commit_height']
         matched_price_point, state_at_height = self.get_applicable_rule_by_height(parent_realm_id, request_subrealm, expected_payment_height - MINT_SUBNAME_RULES_BECOME_EFFECTIVE_IN_BLOCKS, SUBREALM_MINT_PATH)
@@ -1144,14 +1140,21 @@ class BlockProcessor:
             matched_rule = matched_price_point['matched_rule']
             bitworkc = matched_rule.get('bitworkc')
             bitworkr = matched_rule.get('bitworkr')
-            if bitworkc and mint_info.get('$bitworkc') != bitworkc:
-                bitworkc_actual =  mint_info.get('$bitworkc')
-                self.logger.info(f'get_subrealm_parent_realm_info bitworkc_required but not valid {bitworkc} bitworkc_actual={bitworkc_actual}')
-                return None, None 
-            if bitworkr and mint_info.get('$bitworkr') != bitworkr:
-                bitworkr_actual =  mint_info.get('$bitworkr')
-                self.logger.info(f'get_subrealm_parent_realm_info bitworkr_required but not valid {bitworkr} bitworkr_actual={bitworkr_actual}')
-                return None, None 
+            bitworkc_actual = mint_info.get('$bitworkc')
+            bitworkr_actual = mint_info.get('$bitworkr')
+            if bitworkc == 'any':
+                pass
+            elif bitworkc:
+                if bitworkc_actual != bitworkc:
+                    self.logger.info(f'get_subrealm_parent_realm_info bitworkc_required but not valid {bitworkc} bitworkc_actual={bitworkc_actual}')
+                    return None, None 
+            if bitworkr == 'any':
+                pass
+            elif bitworkr:
+                if bitworkr_actual != bitworkr:
+                    self.logger.info(f'get_subrealm_parent_realm_info bitworkr_required but not valid {bitworkr} bitworkc_actual={bitworkr_actual}')
+                    return None, None 
+            
             # There was outputs required, so it's a payment type (it could have bitwork or not)
             if matched_rule.get('o'):
                 return parent_realm_id, None
@@ -1165,30 +1168,28 @@ class BlockProcessor:
         self.logger.info(f'get_subrealm_parent_realm_info no_matched_price_point request_subrealm={request_subrealm}')
         return None, None
  
-    def get_dmitem_parent_container_info(self, mint_info, mint_data_payload, atomicals_spent_at_inputs, height): 
+    def get_dmitem_parent_container_info(self, mint_info, mint_data_payload, height): 
         request_dmitem = mint_info.get('$request_dmitem')
         if not isinstance(request_dmitem, str):
             return None, None
-        # Check to see if the parent realm was spent as part of the inputs to authorize the direct creation of sub item
-        # If the parent realm was spent as one of the inputs, then there does not need to be a payment made, we consider the current transaction
         self.logger.info(f'get_dmitem_parent_container_info: mint_info {mint_info}')
         parent_container_id = compact_to_location_id_bytes(mint_info['$parent_container'])
         # if we got this far then it means it was not parent initiated and it could require bitwork to proceed
         expected_payment_height = mint_info['commit_height']
-        matched_price_point, state_at_height = self.get_applicable_rule_by_height(parent_container_id, request_dmitem, expected_payment_height - MINT_SUBNAME_RULES_BECOME_EFFECTIVE_IN_BLOCKS, DMINT_PATH)
+        matched_price_point, state_at_height_not_used = self.get_applicable_rule_by_height(parent_container_id, request_dmitem, expected_payment_height - MINT_SUBNAME_RULES_BECOME_EFFECTIVE_IN_BLOCKS, DMINT_PATH)
         if matched_price_point:
             # But first validate that there is a valid 'dmint' entry in the container
-            container_dmint_config = state_at_height.get('dmint')
-            # There is no dmint
-            if not container_dmint_config or not isinstance(container_dmint_config, dict):
-                self.logger.info(f'get_dmitem_parent_container_info: parent container does not have dmint mint_info={mint_info}')
-                return None, None
             dmint_validated_status = self.make_container_dmint_status_by_atomical_id_at_height(parent_container_id, height)
             if not dmint_validated_status or dmint_validated_status.get('status') != 'valid':
-                self.logger.info(f'get_dmitem_parent_container_info: parent container dmint is not valid container_dmint_config={container_dmint_config} dmint_validated_status={dmint_validated_status}')
+                self.logger.info(f'get_dmitem_parent_container_info: parent container dmint is not valid dmint_validated_status={dmint_validated_status}')
+                return None, None
+            # User tried to commit the mint before the official launch mint_height
+            mint_height = dmint_validated_status['dmint']['mint_height']
+            if expected_payment_height < mint_height:
+                self.logger.info(f'get_dmitem_parent_container_info: mint commit height={expected_payment_height} is less than mint_height={mint_height} mint_info={mint_info}')
                 return None, None
             # Check for mint_height
-            if height < dmint_validated_status['dmint']['mint_height']:
+            if height < mint_height:
                 self.logger.info(f'get_dmitem_parent_container_info: parent container current height={height} is less than mint_height={mint_height} mint_info={mint_info}')
                 return None, None
             is_proof_valid = validate_dmitem_mint_args_with_container_dmint(mint_info['args'], mint_data_payload, dmint_validated_status['dmint'])
@@ -1199,14 +1200,20 @@ class BlockProcessor:
             matched_rule = matched_price_point['matched_rule']
             bitworkc = matched_rule.get('bitworkc')
             bitworkr = matched_rule.get('bitworkr')
-            if bitworkc and mint_info.get('$bitworkc') != bitworkc:
-                bitworkc_actual =  mint_info.get('$bitworkc')
-                self.logger.info(f'get_dmitem_parent_container_info bitworkc_required but not valid {bitworkc} bitworkc_actual={bitworkc_actual}')
-                return None, None 
-            if bitworkr and mint_info.get('$bitworkr') != bitworkr:
-                bitworkr_actual =  mint_info.get('$bitworkr')
-                self.logger.info(f'get_dmitem_parent_container_info bitworkr_required but not valid {bitworkr} bitworkr_actual={bitworkr_actual}')
-                return None, None 
+            bitworkc_actual = mint_info.get('$bitworkc')
+            bitworkr_actual = mint_info.get('$bitworkr')
+            if bitworkc == 'any':
+                pass
+            elif bitworkc:
+                if bitworkc_actual != bitworkc:
+                    self.logger.info(f'get_subrealm_parent_realm_info bitworkc_required but not valid {bitworkc} bitworkc_actual={bitworkc_actual}')
+                    return None, None 
+            if bitworkr == 'any':
+                pass
+            elif bitworkr:
+                if bitworkr_actual != bitworkr:
+                    self.logger.info(f'get_subrealm_parent_realm_info bitworkr_required but not valid {bitworkr} bitworkc_actual={bitworkr_actual}')
+                    return None, None 
             # There was outputs required, so it's a payment type (it could have bitwork or not)
             if matched_rule.get('o'):
                 return parent_container_id, None
@@ -1323,8 +1330,9 @@ class BlockProcessor:
             if not self.create_or_delete_subrealm_entry_if_requested(mint_info, atomicals_spent_at_inputs, height, Delete):
                 return None
 
-            if not self.create_or_delete_dmitem_entry_if_requested(mint_info, operations_found_at_inputs['payload'], atomicals_spent_at_inputs, height, Delete):
-                return None
+            if height >= self.coin.ATOMICALS_ACTIVATION_HEIGHT_DMINT:
+                if not self.create_or_delete_dmitem_entry_if_requested(mint_info, operations_found_at_inputs['payload'], height, Delete):
+                    return None
 
             if not Delete:
                 if not self.validate_and_create_nft_mint_utxo(mint_info, txout, height, tx_hash):
@@ -1792,8 +1800,6 @@ class BlockProcessor:
         all_entries.sort(key=lambda x: x['tx_num'])
         if len(all_entries) == 0:
             return None, None, [] 
-        settled_status = None
-        leading_candidate = None
         for entry in all_entries:
             atomical_id = entry['value']
             mint_info = self.get_atomicals_id_mint_info(atomical_id)
@@ -1834,7 +1840,6 @@ class BlockProcessor:
         return None, None, all_entries
     
     async def get_effective_dmitems_paginated(self, parent_container_id, limit, offset, height):
-        current_height = height
         if limit > 100:
             limit = 100
         dmitem_names = await self.db.get_dmitem_entries_paginated(parent_container_id, limit, offset)
@@ -1867,8 +1872,6 @@ class BlockProcessor:
         all_entries.sort(key=lambda x: x['tx_num'])
         if len(all_entries) == 0:
             return None, None, [] 
-        settled_status = None
-        leading_candidate = None
         for entry in all_entries:
             atomical_id = entry['value']
             mint_info = self.get_atomicals_id_mint_info(atomical_id)
@@ -1962,7 +1965,7 @@ class BlockProcessor:
         return atomical 
 
     # temporary non lru version
-    async def get_base_mint_info_rpc_format_by_atomical_id(self, atomical_id):
+    async def get_base_mint_info_rpc_format_by_atomical_id_no_cache(self, atomical_id):
         atomical_result = await self.get_base_mint_info_by_atomical_id_async(atomical_id)
         if not atomical_result:
             return None
@@ -1972,7 +1975,7 @@ class BlockProcessor:
         
     # Get the atomical details base info CACHED wrapper
     # todo here
-    async def get_base_mint_info_rpc_format_by_atomical_id_original_key_error(self, atomical_id):
+    async def get_base_mint_info_rpc_format_by_atomical_id(self, atomical_id):
         atomical_result = None
         try:
             atomical_result = self.atomicals_rpc_format_cache[atomical_id]
@@ -2172,8 +2175,8 @@ class BlockProcessor:
         # Check if there was a parent assigned
         parents = init_mint_info.get('$parents')
         if parents:
-            atomical['mint_info']['$parents'] = parent
-            atomical['$parents'] = parent
+            atomical['mint_info']['$parents'] = parents
+            atomical['$parents'] = parents
 
         # Resolve any name like details such as realms, subrealms, containers and tickers
         self.populate_extended_atomical_subtype_info(atomical)
@@ -2377,7 +2380,6 @@ class BlockProcessor:
         request_dmitem = atomical['mint_info'].get('$request_dmitem')
         if not request_dmitem: 
             return None, None
-
         pid_compact = atomical['mint_info']['$parent_container'] 
         pid = compact_to_location_id_bytes(pid_compact)  
         height = self.height
@@ -2921,11 +2923,11 @@ class BlockProcessor:
             if is_all_outputs_matched:
                 # Delete or create the record based on whether we are reorg rollback or creating new
                 payment_outpoint = tx_hash + pack_le_uint32(idx)
-                not_initated_by_parent = b'00' # Used to indicate it was minted according to rules
+                not_initated_by_bitwork = b'00' # Used to indicate it was minted according to rules and not bitwork
                 if Delete:
-                    self.delete_pay_record(found_atomical_id_for_potential_dmitem, tx_num, payment_outpoint + not_initated_by_parent, b'dmpay', self.dmpay_data_cache)
+                    self.delete_pay_record(found_atomical_id_for_potential_dmitem, tx_num, payment_outpoint + not_initated_by_bitwork, b'dmpay', self.dmpay_data_cache)
                 else:
-                    self.put_pay_record(found_atomical_id_for_potential_dmitem, tx_num, payment_outpoint + not_initated_by_parent, b'dmpay', self.dmpay_data_cache)
+                    self.put_pay_record(found_atomical_id_for_potential_dmitem, tx_num, payment_outpoint + not_initated_by_bitwork, b'dmpay', self.dmpay_data_cache)
                 return tx_hash 
         return None 
 

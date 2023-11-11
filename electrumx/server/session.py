@@ -1580,7 +1580,7 @@ class ElectrumX(SessionBase):
             'result': return_result
         }
     
-    async def atomicals_get_by_container_item_validation(self, container, item_name, main_name, main_hash, proof, check_without_sealed):
+    async def atomicals_get_by_container_item_validation(self, container, item_name, bitworkc, bitworkr, main_name, main_hash, proof, check_without_sealed):
         height = self.session_mgr.bp.height
         status, candidate_atomical_id, all_entries = self.session_mgr.bp.get_effective_container(container, height)
         found_parent_atomical_id = None
@@ -1589,13 +1589,11 @@ class ElectrumX(SessionBase):
             found_parent_atomical_id = candidate_atomical_id
         else: 
             raise RPCError(BAD_REQUEST, f'Container does not exist')
-
         compact_atomical_id = location_id_bytes_to_compact(found_parent_atomical_id)
         container_info = await self.atomical_id_get(compact_atomical_id)
         # If it is a dmint container then there is no items field, instead construct it from the dmitems
         container_dmint_status = container_info.get('$container_dmint_status')
         errors = container_dmint_status.get('errors')
-
         if not container_dmint_status or container_dmint_status.get('status') != 'valid':
             errors = container_dmint_status.get('errors')
             if check_without_sealed and errors and len(errors) == 1 and errors[0] == 'container not sealed':
@@ -1613,10 +1611,14 @@ class ElectrumX(SessionBase):
             found_item_atomical_id = candidate_atomical_id
 
         # validate the proof data nonetheless
+        if not proof or not isinstance(proof, list) or len(proof) == 0:
+            raise RPCError(BAD_REQUEST, f'Proof must be provided')    
+        
         applicable_rule, state_at_height = self.session_mgr.bp.get_applicable_rule_by_height(found_parent_atomical_id, item_name, height - MINT_SUBNAME_RULES_BECOME_EFFECTIVE_IN_BLOCKS, DMINT_PATH)
-        proof_valid = validate_merkle_proof_dmint(dmint['merkle'], item_name, main_name, main_hash, proof)
+        proof_valid, target_vector, target_hash = validate_merkle_proof_dmint(dmint['merkle'], item_name, bitworkc, bitworkr, main_name, main_hash, proof)
         if applicable_rule and applicable_rule.get('matched_rule'):
             applicable_rule = applicable_rule.get('matched_rule')
+        
         return_result = {
             'status': status, 
             'candidate_atomical_id': candidate_atomical_id, 
@@ -1624,7 +1626,10 @@ class ElectrumX(SessionBase):
             'candidates': formatted_entries, 
             'type': 'item',
             'applicable_rule': applicable_rule,
-            'proof_valid': proof_valid
+            'proof_valid': proof_valid,
+            'target_vector': target_vector,
+            'target_hash': target_hash,
+            'dmint': state_at_height.get('dmint')
         }
         return {
             'result': return_result
@@ -2387,7 +2392,7 @@ class ElectrumX(SessionBase):
             'blockchain.atomicals.get_by_ticker': self.atomicals_get_by_ticker,
             'blockchain.atomicals.get_by_container': self.atomicals_get_by_container,
             'blockchain.atomicals.get_by_container_item': self.atomicals_get_by_container_item,
-            'blockchain.atomicals.get_by_container_item_validation': self.atomicals_get_by_container_item_validation,
+            'blockchain.atomicals.get_by_container_item_validate': self.atomicals_get_by_container_item_validation,
             'blockchain.atomicals.get_container_items': self.atomicals_get_container_items,
             'blockchain.atomicals.get_ft_info': self.atomicals_get_ft_info,
             'blockchain.atomicals.find_tickers': self.atomicals_search_tickers,

@@ -663,6 +663,7 @@ class Bitcoin(BitcoinMixin, Coin):
         'nf365b5sbzk5j4jreimskffwnfpka7qtamyni5doohoom3g63o5tldad.onion t'
     ]
     ATOMICALS_ACTIVATION_HEIGHT = 808080
+    ATOMICALS_ACTIVATION_HEIGHT_DMINT = 820000 
 
     @classmethod
     def warn_old_client_on_tx_broadcast(cls, client_ver):

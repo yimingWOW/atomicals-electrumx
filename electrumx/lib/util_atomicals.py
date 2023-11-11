@@ -332,6 +332,9 @@ def is_valid_bitwork_string(bitwork):
         }
     return None, None
 
+def is_bitwork_const(bitwork_val):
+    return bitwork_val == 'any'
+
 # check whether an Atomicals operation contains a proof of work argument
 def has_requested_proof_of_work(operations_found_at_inputs):
     if not operations_found_at_inputs:
@@ -564,7 +567,21 @@ def get_mint_info_op_factory(coin, tx, tx_hash, op_found_struct, atomicals_spent
         subrealm = mint_info['args'].get('request_subrealm')
         container = mint_info['args'].get('request_container')
         dmitem = mint_info['args'].get('request_dmitem')
-        
+        # Strings evaulate to falsey when empty
+        # Reject any NFT which contains an empty string for any of the requests
+        if isinstance(realm, str) and realm == '':
+            print(f'NFT request_realm is invalid detected empty request_realm str {hash_to_hex_str(tx_hash)}. Skipping....')
+            return None, None
+        if isinstance(subrealm, str) and subrealm == '':
+            print(f'NFT request_subrealm is invalid detected empty request_subrealm str {hash_to_hex_str(tx_hash)}. Skipping....')
+            return None, None
+        if isinstance(container, str) and container == '':
+            print(f'NFT request_container is invalid detected empty request_container str {hash_to_hex_str(tx_hash)}. Skipping....')
+            return None, None
+        if isinstance(dmitem, str) and dmitem == '':
+            print(f'NFT request_dmitem is invalid detected empty request_dmitem str {hash_to_hex_str(tx_hash)}. Skipping....')
+            return None, None
+
         if realm:
             print(f'NFT request_realm evaluating {hash_to_hex_str(tx_hash)}, {realm}')
             if not isinstance(realm, str) or not is_valid_realm_string_name(realm):
@@ -572,6 +589,7 @@ def get_mint_info_op_factory(coin, tx, tx_hash, op_found_struct, atomicals_spent
                 return None, None 
             mint_info['$request_realm'] = realm
             print(f'NFT request_realm_is_valid {hash_to_hex_str(tx_hash)}, {realm}')
+        
         elif subrealm:
             if not isinstance(subrealm, str) or not is_valid_subrealm_string_name(subrealm):
                 print(f'NFT request_subrealm is invalid {hash_to_hex_str(tx_hash)}, {subrealm}. Skipping...')
@@ -595,7 +613,7 @@ def get_mint_info_op_factory(coin, tx, tx_hash, op_found_struct, atomicals_spent
             # It requires an extra step to convert, but it makes it easier to understand the format
             mint_info['$parent_realm'] = parent_realm_id_compact
         elif dmitem:
-            if not isinstance(dmitem, str) or len(dmitem) == 0 or len(dmitem) > 64:
+            if not isinstance(dmitem, str) or not is_valid_container_dmitem_string_name(dmitem):
                 print(f'NFT request_dmitem is invalid {hash_to_hex_str(tx_hash)}, {dmitem}. Skipping...')
                 return None, None
             # The parent container id is in a compact form string to make it easier for users and developers
@@ -844,6 +862,17 @@ def is_valid_container_string_name(container_name):
     # Collection names can start with any type of character except the hyphen "-"
     m = re.compile(r'^[a-z0-9][a-z0-9\-]{0,63}$')
     if m.match(container_name):
+        return True
+    return False 
+
+# Is valid container item name
+# Including a-z0-9 and hyphen's "-"
+def is_valid_container_dmitem_string_name(dmitem):
+    if not is_valid_namebase_string_name(dmitem):
+        return False
+    # Collection names can start with any type of character except the hyphen "-"
+    m = re.compile(r'^[a-z0-9][a-z0-9\-]{0,63}$')
+    if m.match(dmitem):
         return True
     return False 
 
@@ -1198,7 +1227,6 @@ def calculate_latest_state_from_mod_history(mod_history):
 def validate_rules_data(namespace_data):
     if not namespace_data or not isinstance(namespace_data, dict):
         return None 
-
     return validate_rules(namespace_data)
 
 # Validate the rules array data for subrealm mints
@@ -1227,30 +1255,24 @@ def validate_rules(namespace_data):
             return None 
         # regex is the first pattern that will be checked to match for minting a subrealm
         regex_pattern = rule_set_entry.get('p')
-
         if not isinstance(regex_pattern, str):
             print_subrealm_calculate_log(f'regex pattern is not a string')
             return None  
-    
         if len(regex_pattern) > MAX_SUBNAME_RULE_SIZE_LEN or len(regex_pattern) < 1:
             print_subrealm_calculate_log(f'rule empty or too large')
             return None # Reject if the rule has more than MAX_SUBNAME_RULE_SIZE_LEN chars
-
         # Output is the output script that must be paid to mint the subrealm
         outputs = rule_set_entry.get('o')
         bitworkc = rule_set_entry.get('bitworkc')
         bitworkr = rule_set_entry.get('bitworkr')
-
         if not regex_pattern:
             return None
-
         # Check that regex is a valid regex pattern
         try:
-            valid_pattern = re.compile(rf"{regex_pattern}")
+            re.compile(rf"{regex_pattern}")
         except Exception as e: 
             print_subrealm_calculate_log(f'Regex compile error {e}')
             return None # Reject if one of the regexe's could not be compiled.
-            
         # Build the price point (ie: could be paid in sats, ARC20 or bitwork)
         price_point = {
             'p': regex_pattern
@@ -1258,22 +1280,23 @@ def validate_rules(namespace_data):
         # There must be at least one rule type for minting
         if not outputs and not bitworkc and not bitworkr:
             return None 
-
         # Sanity check that bitworkc and bitworkr must be at least well formatted if they are set
         if bitworkc:
             valid_str, bitwork_parts = is_valid_bitwork_string(bitworkc)
             if valid_str:
                 price_point['bitworkc'] = valid_str
+            elif is_bitwork_const(bitworkc):
+                price_point['bitworkc'] = bitworkc
             else:
-                return None 
-
+                return None
         if bitworkr:
             valid_str, bitwork_parts = is_valid_bitwork_string(bitworkr)
             if valid_str:
                 price_point['bitworkr'] = valid_str
+            elif is_bitwork_const(bitworkr):
+                price_point['bitworkr'] = bitworkr
             else:
                 return None 
-
         if outputs:
             # check for a list of outputs
             if not isinstance(outputs, dict) or len(outputs.keys()) < 1:
@@ -1282,7 +1305,6 @@ def validate_rules(namespace_data):
 
             if not validate_subrealm_rules_outputs_format(outputs):
                 return None 
-            
             price_point['o'] = outputs
             validated_rules_list.append(price_point)
         elif bitworkc or bitworkr:
@@ -1303,7 +1325,6 @@ def assign_expected_outputs_basic(atomical_id, ft_value, tx, start_out_idx):
     idx_count = 0
     if start_out_idx >= len(tx.outputs):
         return False, expected_output_indexes
-    
     for out_idx, txout in enumerate(tx.outputs): 
         # Only consider outputs from the starting index
         if idx_count < start_out_idx:
@@ -1556,30 +1577,27 @@ def validate_dmitem_mint_args_with_container_dmint(mint_args, mint_data_payload,
             if not d or not isinstance(d, str) or len(d) != 64:
                 print(f'validate_dmitem_mint_args_with_container_dmint: proof data hash is not 64 hex characters')
                 return False
-
     expect_immutable_value = dmint.get('immutable', False)
     if expect_immutable_value:
         args_i = args.get('i')
         if not args_i or not isinstance(args_i, bool):
             print(f'validate_dmitem_mint_args_with_container_dmint: immutable is expected')
             return False
-
     request_dmitem = args.get('request_dmitem')
     merkle = dmint.get('merkle')
-
     main = args.get('main')
     if not main or not isinstance(main, str):
         print(f'validate_dmitem_mint_args_with_container_dmint: main is not valid str')
         return False
-        
     main_data = mint_data_payload.get(main)
     if not main_data:
         print(f'get_dmitem_parent_container_info: main element is not defined')
         return False
     main_hash = double_sha256(main_data)
-
     print(f'validate_dmitem_mint_args_with_container_dmint: merkle={merkle} main={main} main_hash={main_hash.hex()}, request_dmitem={request_dmitem} proof={proof}')
-    is_proof_valid = validate_merkle_proof_dmint(merkle, request_dmitem, main, main_hash.hex(), proof)
+    bitworkc = args.get('bitworkc')
+    bitworkr = args.get('bitworkr')
+    is_proof_valid, target_vector, target_hash = validate_merkle_proof_dmint(merkle, request_dmitem, bitworkc, bitworkr, main, main_hash.hex(), proof)
     return is_proof_valid
 
 def get_container_dmint_format_status(dmint):
@@ -1624,19 +1642,57 @@ def get_container_dmint_format_status(dmint):
 
     return base_status
  
-def validate_merkle_proof_dmint(expected_root_hash, item_name, main, main_hash, proof):
-    print(f'expected_root_hash={expected_root_hash} item_name={item_name} main={main} main_hash={main_hash} proof={proof} ')
-    concat_str = item_name + main + main_hash
-    target_hash = sha256(concat_str.encode())
-    mt = MerkleTools()
-    formatted_proof = []
-    for item in proof:
-        if item['p']:
-            formatted_proof.append({
-                'right': item['d']
-            })
-        else: 
-            formatted_proof.append({
-                'left': item['d']
-            })
-    return mt.validate_proof(formatted_proof, target_hash.hex(), expected_root_hash) 
+def validate_merkle_proof_dmint(expected_root_hash, item_name, possible_bitworkc, possible_bitworkr, main, main_hash, proof):
+    print(f'expected_root_hash={expected_root_hash} item_name={item_name} possible_bitworkc={possible_bitworkc} possible_bitworkr={possible_bitworkr} main={main} main_hash={main_hash} proof={proof} ')
+    # There could be 4 ways to have encoded the merkle proof, we will test each way to find it
+    # The reason for this is we do not know if the bitworkc/bitworkr was 'any' or a specific value
+    # Therefore to not put more data into the request, we just loop over all possible combinations (there are 4)
+    # Only one of them can be validate, and then the proof is completed
+    
+    # Combinations can be:
+    # any/any
+    # specific_bitworkc/any
+    # any/specific_bitworkr
+    # specific_bitworkc/specific_bitworkr
+
+    def check_validate_proof(target_hash, proof):
+        mt = MerkleTools()
+        formatted_proof = []
+        for item in proof:
+            if item['p']:
+                formatted_proof.append({
+                    'right': item['d']
+                })
+            else: 
+                formatted_proof.append({
+                    'left': item['d']
+                })
+        return mt.validate_proof(formatted_proof, target_hash, expected_root_hash) 
+
+    # Case 1: any/any
+    concat_str1 = item_name + ':' + 'any' + ':' + 'any' + ':' + main + ':' + main_hash
+    target_hash = sha256(concat_str1.encode()).hex()
+    if check_validate_proof(target_hash, proof):
+        return True, concat_str1, target_hash
+
+    # Case 2: specific_bitworkc/any
+    if possible_bitworkc:
+        concat_str2 = item_name + ':' + possible_bitworkc + ':' + 'any' + ':' + main + ':' + main_hash
+        target_hash = sha256(concat_str2.encode()).hex()
+        if check_validate_proof(target_hash, proof):
+            return True, concat_str2, target_hash
+
+    # Case 3: any/specific_bitworkr
+    if possible_bitworkr:
+        concat_str3 = item_name + ':' + 'any' + ':' + possible_bitworkr + ':' + main + ':' + main_hash
+        target_hash = sha256(concat_str3.encode()).hex()
+        if check_validate_proof(target_hash, proof):
+            return True, concat_str3, target_hash
+
+    if possible_bitworkc and possible_bitworkr:
+        concat_str4 = item_name + ':' + possible_bitworkc + ':' + possible_bitworkr + ':' + main + ':' + main_hash
+        target_hash = sha256(concat_str4.encode()).hex()
+        if check_validate_proof(target_hash, proof):
+            return True, concat_str4, target_hash
+
+    return False, None, None
