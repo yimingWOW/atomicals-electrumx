@@ -564,7 +564,21 @@ def get_mint_info_op_factory(coin, tx, tx_hash, op_found_struct, atomicals_spent
         subrealm = mint_info['args'].get('request_subrealm')
         container = mint_info['args'].get('request_container')
         dmitem = mint_info['args'].get('request_dmitem')
-        
+        # Strings evaulate to falsey when empty
+        # Reject any NFT which contains an empty string for any of the requests
+        if isinstance(realm, str) and realm == '':
+            print(f'NFT request_realm is invalid detected empty request_realm str {hash_to_hex_str(tx_hash)}. Skipping....')
+            return None, None
+        if isinstance(subrealm, str) and subrealm == '':
+            print(f'NFT request_subrealm is invalid detected empty request_subrealm str {hash_to_hex_str(tx_hash)}. Skipping....')
+            return None, None
+        if isinstance(container, str) and container == '':
+            print(f'NFT request_container is invalid detected empty request_container str {hash_to_hex_str(tx_hash)}. Skipping....')
+            return None, None
+        if isinstance(dmitem, str) and dmitem == '':
+            print(f'NFT request_dmitem is invalid detected empty request_dmitem str {hash_to_hex_str(tx_hash)}. Skipping....')
+            return None, None
+
         if realm:
             print(f'NFT request_realm evaluating {hash_to_hex_str(tx_hash)}, {realm}')
             if not isinstance(realm, str) or not is_valid_realm_string_name(realm):
@@ -572,6 +586,7 @@ def get_mint_info_op_factory(coin, tx, tx_hash, op_found_struct, atomicals_spent
                 return None, None 
             mint_info['$request_realm'] = realm
             print(f'NFT request_realm_is_valid {hash_to_hex_str(tx_hash)}, {realm}')
+        
         elif subrealm:
             if not isinstance(subrealm, str) or not is_valid_subrealm_string_name(subrealm):
                 print(f'NFT request_subrealm is invalid {hash_to_hex_str(tx_hash)}, {subrealm}. Skipping...')
