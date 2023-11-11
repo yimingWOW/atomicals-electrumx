@@ -281,7 +281,7 @@ class BlockProcessor:
         # Signalled after backing up during a reorg
         self.backed_up_event = asyncio.Event()
 
-        self.atomicals_id_cache = pylru.lrucache(100000)
+        self.atomicals_id_cache = pylru.lrucache(1000000)
         self.atomicals_rpc_format_cache = pylru.lrucache(100000)
   
     async def run_in_thread_with_lock(self, func, *args):
@@ -1962,7 +1962,7 @@ class BlockProcessor:
         return atomical 
 
     # temporary non lru version
-    async def get_base_mint_info_rpc_format_by_atomical_id(self, atomical_id):
+    async def get_base_mint_info_rpc_format_by_atomical_id_no_cache(self, atomical_id):
         atomical_result = await self.get_base_mint_info_by_atomical_id_async(atomical_id)
         if not atomical_result:
             return None
@@ -1972,7 +1972,7 @@ class BlockProcessor:
         
     # Get the atomical details base info CACHED wrapper
     # todo here
-    async def get_base_mint_info_rpc_format_by_atomical_id_original_key_error(self, atomical_id):
+    async def get_base_mint_info_rpc_format_by_atomical_id(self, atomical_id):
         atomical_result = None
         try:
             atomical_result = self.atomicals_rpc_format_cache[atomical_id]
