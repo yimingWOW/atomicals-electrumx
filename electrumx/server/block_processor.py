@@ -67,7 +67,8 @@ from electrumx.lib.util_atomicals import (
     validate_rules_data,
     AtomicalsValidationError,
     get_container_dmint_format_status,
-    validate_dmitem_mint_args_with_container_dmint
+    validate_dmitem_mint_args_with_container_dmint,
+    is_bitwork_const
 )
 
 import copy
@@ -1144,14 +1145,26 @@ class BlockProcessor:
             matched_rule = matched_price_point['matched_rule']
             bitworkc = matched_rule.get('bitworkc')
             bitworkr = matched_rule.get('bitworkr')
-            if bitworkc and mint_info.get('$bitworkc') != bitworkc:
-                bitworkc_actual =  mint_info.get('$bitworkc')
-                self.logger.info(f'get_subrealm_parent_realm_info bitworkc_required but not valid {bitworkc} bitworkc_actual={bitworkc_actual}')
-                return None, None 
-            if bitworkr and mint_info.get('$bitworkr') != bitworkr:
-                bitworkr_actual =  mint_info.get('$bitworkr')
-                self.logger.info(f'get_subrealm_parent_realm_info bitworkr_required but not valid {bitworkr} bitworkr_actual={bitworkr_actual}')
-                return None, None 
+            if bitworkc:
+                bitwork_const_value = is_bitwork_const(bitworkc)
+                bitworkc_actual = mint_info.get('$bitworkc')
+                if not bitwork_const_value and bitworkc_actual != bitworkc:
+                    self.logger.info(f'get_subrealm_parent_realm_info bitworkc_required but not valid {bitworkc} bitworkc_actual={bitworkc_actual}')
+                    return None, None 
+                if bitwork_const_value:
+                    if len(bitworkc_actual) < bitwork_const_value['minlength']:
+                        self.logger.info(f'get_subrealm_parent_realm_info bitworkc bitwork_const_value={bitwork_const_value} not valid {bitworkc} bitworkc_actual={bitworkc_actual}')
+                        return None, None 
+            if bitworkr:
+                bitwork_const_value = is_bitwork_const(bitworkr)
+                bitworkr_actual = mint_info.get('$bitworkr')
+                if not bitwork_const_value and bitworkr_actual != bitworkr:
+                    self.logger.info(f'get_subrealm_parent_realm_info bitworkr_required but not valid {bitworkr} bitworkr_actual={bitworkr_actual}')
+                    return None, None 
+                if bitwork_const_value:
+                    if len(bitworkr_actual) < bitwork_const_value['minlength']:
+                        self.logger.info(f'get_subrealm_parent_realm_info bitworkr bitwork_const_value={bitwork_const_value} not valid {bitworkr} bitworkr_actual={bitworkr_actual}')
+                        return None, None 
             # There was outputs required, so it's a payment type (it could have bitwork or not)
             if matched_rule.get('o'):
                 return parent_realm_id, None

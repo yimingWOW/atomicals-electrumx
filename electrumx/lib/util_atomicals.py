@@ -332,6 +332,57 @@ def is_valid_bitwork_string(bitwork):
         }
     return None, None
 
+def is_bitwork_const(bitwork_val):
+    if not bitwork_value or not isinstance(bitwork_val, str):
+        return None 
+
+    if bitwork_val == 'min1':
+        return {
+            'minlength': 1
+        }
+    if bitwork_val == 'min2':
+        return {
+            'minlength': 2
+        }
+    if bitwork_val == 'min3':
+        return {
+            'minlength': 3
+        }
+    if bitwork_val == 'min4':
+        return {
+            'minlength': 4
+        }
+    if bitwork_val == 'min5':
+        return {
+            'minlength': 5
+        }
+    if bitwork_val == 'min6':
+        return {
+            'minlength': 6
+        }
+    if bitwork_val == 'min7':
+        return {
+            'minlength': 7
+        }
+    if bitwork_val == 'min8':
+        return {
+            'minlength': 8
+        }
+    if bitwork_val == 'min9':
+        return {
+            'minlength': 9
+        }
+    if bitwork_val == 'min10':
+        return {
+            'minlength': 10
+        }
+    if bitwork_val == 'min11':
+        return {
+            'minlength': 11
+        }
+
+    return None 
+
 # check whether an Atomicals operation contains a proof of work argument
 def has_requested_proof_of_work(operations_found_at_inputs):
     if not operations_found_at_inputs:
@@ -610,7 +661,7 @@ def get_mint_info_op_factory(coin, tx, tx_hash, op_found_struct, atomicals_spent
             # It requires an extra step to convert, but it makes it easier to understand the format
             mint_info['$parent_realm'] = parent_realm_id_compact
         elif dmitem:
-            if not isinstance(dmitem, str) or len(dmitem) == 0 or len(dmitem) > 64:
+            if not isinstance(dmitem, str) or not is_valid_container_dmitem_string_name(dmitem):
                 print(f'NFT request_dmitem is invalid {hash_to_hex_str(tx_hash)}, {dmitem}. Skipping...')
                 return None, None
             # The parent container id is in a compact form string to make it easier for users and developers
@@ -859,6 +910,17 @@ def is_valid_container_string_name(container_name):
     # Collection names can start with any type of character except the hyphen "-"
     m = re.compile(r'^[a-z0-9][a-z0-9\-]{0,63}$')
     if m.match(container_name):
+        return True
+    return False 
+
+# Is valid container item name
+# Including a-z0-9 and hyphen's "-"
+def is_valid_container_dmitem_string_name(dmitem):
+    if not is_valid_namebase_string_name(dmitem):
+        return False
+    # Collection names can start with any type of character except the hyphen "-"
+    m = re.compile(r'^[a-z0-9][a-z0-9\-]{0,63}$')
+    if m.match(dmitem):
         return True
     return False 
 
@@ -1279,13 +1341,17 @@ def validate_rules(namespace_data):
             valid_str, bitwork_parts = is_valid_bitwork_string(bitworkc)
             if valid_str:
                 price_point['bitworkc'] = valid_str
+            elif is_bitwork_const(bitworkc):
+                price_point['bitworkc'] = bitworkc
             else:
-                return None 
+                return None
 
         if bitworkr:
             valid_str, bitwork_parts = is_valid_bitwork_string(bitworkr)
             if valid_str:
                 price_point['bitworkr'] = valid_str
+            elif is_bitwork_const(bitworkr):
+                price_point['bitworkr'] = bitworkr
             else:
                 return None 
 
@@ -1641,7 +1707,7 @@ def get_container_dmint_format_status(dmint):
  
 def validate_merkle_proof_dmint(expected_root_hash, item_name, main, main_hash, proof):
     print(f'expected_root_hash={expected_root_hash} item_name={item_name} main={main} main_hash={main_hash} proof={proof} ')
-    concat_str = item_name + main + main_hash
+    concat_str = item_name + ':' + main ':' + main_hash
     target_hash = sha256(concat_str.encode())
     mt = MerkleTools()
     formatted_proof = []
