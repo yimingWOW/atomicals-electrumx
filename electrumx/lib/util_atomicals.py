@@ -1703,7 +1703,7 @@ def validate_merkle_proof_dmint(expected_root_hash, item_name, possible_bitworkc
         if check_validate_proof(concat_str3):
             return True
 
-    if possible_bitworkc and if possible_bitworkr:
+    if possible_bitworkc and possible_bitworkr:
         concat_str4 = item_name + ':' + possible_bitworkc + ':' + possible_bitworkr + ':' + main + ':' + main_hash
         if check_validate_proof(concat_str4):
             return True
