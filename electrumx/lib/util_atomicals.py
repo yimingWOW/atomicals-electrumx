@@ -333,55 +333,7 @@ def is_valid_bitwork_string(bitwork):
     return None, None
 
 def is_bitwork_const(bitwork_val):
-    if not bitwork_value or not isinstance(bitwork_val, str):
-        return None 
-
-    if bitwork_val == 'min1':
-        return {
-            'minlength': 1
-        }
-    if bitwork_val == 'min2':
-        return {
-            'minlength': 2
-        }
-    if bitwork_val == 'min3':
-        return {
-            'minlength': 3
-        }
-    if bitwork_val == 'min4':
-        return {
-            'minlength': 4
-        }
-    if bitwork_val == 'min5':
-        return {
-            'minlength': 5
-        }
-    if bitwork_val == 'min6':
-        return {
-            'minlength': 6
-        }
-    if bitwork_val == 'min7':
-        return {
-            'minlength': 7
-        }
-    if bitwork_val == 'min8':
-        return {
-            'minlength': 8
-        }
-    if bitwork_val == 'min9':
-        return {
-            'minlength': 9
-        }
-    if bitwork_val == 'min10':
-        return {
-            'minlength': 10
-        }
-    if bitwork_val == 'min11':
-        return {
-            'minlength': 11
-        }
-
-    return None 
+    return bitwork_val == 'any'
 
 # check whether an Atomicals operation contains a proof of work argument
 def has_requested_proof_of_work(operations_found_at_inputs):
@@ -1651,6 +1603,7 @@ def validate_dmitem_mint_args_with_container_dmint(mint_args, mint_data_payload,
     main = args.get('main')
     if not main or not isinstance(main, str):
         print(f'validate_dmitem_mint_args_with_container_dmint: main is not valid str')
+        
         return False
         
     main_data = mint_data_payload.get(main)
@@ -1705,9 +1658,9 @@ def get_container_dmint_format_status(dmint):
 
     return base_status
  
-def validate_merkle_proof_dmint(expected_root_hash, item_name, main, main_hash, proof):
+def validate_merkle_proof_dmint(expected_root_hash, item_name, bitworkc, bitworkr, main, main_hash, proof):
     print(f'expected_root_hash={expected_root_hash} item_name={item_name} main={main} main_hash={main_hash} proof={proof} ')
-    concat_str = item_name + ':' + main ':' + main_hash
+    concat_str = item_name + ':' + bitworkc + ':' + bitworkr + ':' + main + ':' + main_hash
     target_hash = sha256(concat_str.encode())
     mt = MerkleTools()
     formatted_proof = []

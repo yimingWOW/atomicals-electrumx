@@ -1145,28 +1145,21 @@ class BlockProcessor:
             matched_rule = matched_price_point['matched_rule']
             bitworkc = matched_rule.get('bitworkc')
             bitworkr = matched_rule.get('bitworkr')
-            if bitworkc:
-                bitwork_const_value = is_bitwork_const(bitworkc)
-                bitworkc_actual = mint_info.get('$bitworkc')
-                if not bitwork_const_value and bitworkc_actual != bitworkc:
+            bitworkc_actual = mint_info.get('$bitworkc')
+            bitworkr_actual = mint_info.get('$bitworkr')
+            if bitworkc == 'any':
+                pass
+            elif bitworkc:
+                if bitworkc_actual != bitworkc:
                     self.logger.info(f'get_subrealm_parent_realm_info bitworkc_required but not valid {bitworkc} bitworkc_actual={bitworkc_actual}')
                     return None, None 
-                if bitwork_const_value:
-                    bitwork_result, parts = is_valid_bitwork_string(bitworkc_actual)
-                    if len(parts['prefix']) < bitwork_const_value['minlength']:
-                        self.logger.info(f'get_subrealm_parent_realm_info bitworkc bitwork_const_value={bitwork_const_value} not valid {bitworkc} bitworkc_actual={bitworkc_actual}')
-                        return None, None 
-            if bitworkr:
-                bitwork_const_value = is_bitwork_const(bitworkr)
-                bitworkr_actual = mint_info.get('$bitworkr')
-                if not bitwork_const_value and bitworkr_actual != bitworkr:
-                    self.logger.info(f'get_subrealm_parent_realm_info bitworkr_required but not valid {bitworkr} bitworkr_actual={bitworkr_actual}')
+            if bitworkr == 'any':
+                pass
+            elif bitworkr:
+                if bitworkr_actual != bitworkr:
+                    self.logger.info(f'get_subrealm_parent_realm_info bitworkr_required but not valid {bitworkr} bitworkc_actual={bitworkr_actual}')
                     return None, None 
-                if bitwork_const_value:
-                    bitwork_result, parts = is_valid_bitwork_string(bitworkr_actual)
-                    if len(parts['prefix']) < bitwork_const_value['minlength']:
-                        self.logger.info(f'get_subrealm_parent_realm_info bitworkr bitwork_const_value={bitwork_const_value} not valid {bitworkr} bitworkr_actual={bitworkr_actual}')
-                        return None, None 
+            
             # There was outputs required, so it's a payment type (it could have bitwork or not)
             if matched_rule.get('o'):
                 return parent_realm_id, None
@@ -1212,28 +1205,20 @@ class BlockProcessor:
             matched_rule = matched_price_point['matched_rule']
             bitworkc = matched_rule.get('bitworkc')
             bitworkr = matched_rule.get('bitworkr')
-            if bitworkc:
-                bitwork_const_value = is_bitwork_const(bitworkc)
-                bitworkc_actual = mint_info.get('$bitworkc')
-                if not bitwork_const_value and bitworkc_actual != bitworkc:
-                    self.logger.info(f'get_dmitem_parent_container_info bitworkc_required but not valid {bitworkc} bitworkc_actual={bitworkc_actual}')
+            bitworkc_actual = mint_info.get('$bitworkc')
+            bitworkr_actual = mint_info.get('$bitworkr')
+            if bitworkc == 'any':
+                pass
+            elif bitworkc:
+                if bitworkc_actual != bitworkc:
+                    self.logger.info(f'get_subrealm_parent_realm_info bitworkc_required but not valid {bitworkc} bitworkc_actual={bitworkc_actual}')
                     return None, None 
-                if bitwork_const_value:
-                    bitwork_result, parts = is_valid_bitwork_string(bitworkc_actual)
-                    if len(parts['prefix']) < bitwork_const_value['minlength']:
-                        self.logger.info(f'get_dmitem_parent_container_info bitworkc bitwork_const_value={bitwork_const_value} not valid {bitworkc} bitworkc_actual={bitworkc_actual}')
-                        return None, None 
-            if bitworkr:
-                bitwork_const_value = is_bitwork_const(bitworkr)
-                bitworkr_actual = mint_info.get('$bitworkr')
-                if not bitwork_const_value and bitworkr_actual != bitworkr:
-                    self.logger.info(f'get_dmitem_parent_container_info bitworkr_required but not valid {bitworkr} bitworkr_actual={bitworkr_actual}')
+            if bitworkr == 'any':
+                pass
+            elif bitworkr:
+                if bitworkr_actual != bitworkr:
+                    self.logger.info(f'get_subrealm_parent_realm_info bitworkr_required but not valid {bitworkr} bitworkc_actual={bitworkr_actual}')
                     return None, None 
-                if bitwork_const_value:
-                    bitwork_result, parts = is_valid_bitwork_string(bitworkr_actual)
-                    if len(parts['prefix']) < bitwork_const_value['minlength']:
-                        self.logger.info(f'get_dmitem_parent_container_info bitworkr bitwork_const_value={bitwork_const_value} not valid {bitworkr} bitworkr_actual={bitworkr_actual}')
-                        return None, None 
             # There was outputs required, so it's a payment type (it could have bitwork or not)
             if matched_rule.get('o'):
                 return parent_container_id, None
