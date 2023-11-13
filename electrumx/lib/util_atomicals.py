@@ -1658,19 +1658,54 @@ def get_container_dmint_format_status(dmint):
 
     return base_status
  
-def validate_merkle_proof_dmint(expected_root_hash, item_name, bitworkc, bitworkr, main, main_hash, proof):
-    print(f'expected_root_hash={expected_root_hash} item_name={item_name} main={main} main_hash={main_hash} proof={proof} ')
-    concat_str = item_name + ':' + bitworkc + ':' + bitworkr + ':' + main + ':' + main_hash
-    target_hash = sha256(concat_str.encode())
-    mt = MerkleTools()
-    formatted_proof = []
-    for item in proof:
-        if item['p']:
-            formatted_proof.append({
-                'right': item['d']
-            })
-        else: 
-            formatted_proof.append({
-                'left': item['d']
-            })
-    return mt.validate_proof(formatted_proof, target_hash.hex(), expected_root_hash) 
+def validate_merkle_proof_dmint(expected_root_hash, item_name, possible_bitworkc, possible_bitworkr, main, main_hash, proof):
+    print(f'expected_root_hash={expected_root_hash} item_name={item_name} possible_bitworkc={possible_bitworkc} possible_bitworkr={possible_bitworkr} main={main} main_hash={main_hash} proof={proof} ')
+    # There could be 4 ways to have encoded the merkle proof, we will test each way to find it
+    # The reason for this is we do not know if the bitworkc/bitworkr was 'any' or a specific value
+    # Therefore to not put more data into the request, we just loop over all possible combinations (there are 4)
+    # Only one of them can be validate, and then the proof is completed
+    
+    # Combinations can be:
+    # any/any
+    # specific_bitworkc/any
+    # any/specific_bitworkr
+    # specific_bitworkc/specific_bitworkr
+
+    def check_validate_proof(concatted_str):
+        target_hash = sha256(concat_str.encode())
+        mt = MerkleTools()
+        formatted_proof = []
+        for item in proof:
+            if item['p']:
+                formatted_proof.append({
+                    'right': item['d']
+                })
+            else: 
+                formatted_proof.append({
+                    'left': item['d']
+                })
+        return mt.validate_proof(formatted_proof, target_hash.hex(), expected_root_hash) 
+
+    # Case 1: any/any
+    concat_str1 = item_name + ':' + 'any' + ':' + 'any' + ':' + main + ':' + main_hash
+    if check_validate_proof(concat_str1):
+        return True
+
+    # Case 2: specific_bitworkc/any
+    if possible_bitworkc:
+        concat_str2 = item_name + ':' + possible_bitworkc + ':' + 'any' + ':' + main + ':' + main_hash
+        if check_validate_proof(concat_str2):
+            return True
+
+    # Case 3: any/specific_bitworkr
+    if possible_bitworkr:
+        concat_str3 = item_name + ':' + 'any' + ':' + possible_bitworkr + ':' + main + ':' + main_hash
+        if check_validate_proof(concat_str3):
+            return True
+
+    if possible_bitworkc and if possible_bitworkr:
+        concat_str4 = item_name + ':' + possible_bitworkc + ':' + possible_bitworkr + ':' + main + ':' + main_hash
+        if check_validate_proof(concat_str4):
+            return True
+
+    return False

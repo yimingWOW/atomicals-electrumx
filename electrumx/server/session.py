@@ -1580,7 +1580,7 @@ class ElectrumX(SessionBase):
             'result': return_result
         }
     
-    async def atomicals_get_by_container_item_validation(self, container, item_name, main_name, main_hash, proof, check_without_sealed):
+    async def atomicals_get_by_container_item_validation(self, container, item_name, bitworkc, bitworkr, main_name, main_hash, proof, check_without_sealed):
         height = self.session_mgr.bp.height
         status, candidate_atomical_id, all_entries = self.session_mgr.bp.get_effective_container(container, height)
         found_parent_atomical_id = None
@@ -1614,7 +1614,7 @@ class ElectrumX(SessionBase):
 
         # validate the proof data nonetheless
         applicable_rule, state_at_height = self.session_mgr.bp.get_applicable_rule_by_height(found_parent_atomical_id, item_name, height - MINT_SUBNAME_RULES_BECOME_EFFECTIVE_IN_BLOCKS, DMINT_PATH)
-        proof_valid = validate_merkle_proof_dmint(dmint['merkle'], item_name, main_name, main_hash, proof)
+        proof_valid = validate_merkle_proof_dmint(dmint['merkle'], item_name, bitworkc, bitworkr, main_name, main_hash, proof)
         if applicable_rule and applicable_rule.get('matched_rule'):
             applicable_rule = applicable_rule.get('matched_rule')
         return_result = {
