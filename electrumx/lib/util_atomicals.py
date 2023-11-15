@@ -1613,7 +1613,7 @@ def validate_dmitem_mint_args_with_container_dmint(mint_args, mint_data_payload,
     main_hash = double_sha256(main_data)
 
     print(f'validate_dmitem_mint_args_with_container_dmint: merkle={merkle} main={main} main_hash={main_hash.hex()}, request_dmitem={request_dmitem} proof={proof}')
-    is_proof_valid = validate_merkle_proof_dmint(merkle, request_dmitem, main, main_hash.hex(), proof)
+    is_proof_valid, target_vector = validate_merkle_proof_dmint(merkle, request_dmitem, main, main_hash.hex(), proof)
     return is_proof_valid
 
 def get_container_dmint_format_status(dmint):
@@ -1689,23 +1689,23 @@ def validate_merkle_proof_dmint(expected_root_hash, item_name, possible_bitworkc
     # Case 1: any/any
     concat_str1 = item_name + ':' + 'any' + ':' + 'any' + ':' + main + ':' + main_hash
     if check_validate_proof(concat_str1):
-        return True
+        return True, concat_str1
 
     # Case 2: specific_bitworkc/any
     if possible_bitworkc:
         concat_str2 = item_name + ':' + possible_bitworkc + ':' + 'any' + ':' + main + ':' + main_hash
         if check_validate_proof(concat_str2):
-            return True
+            return True, concat_str2
 
     # Case 3: any/specific_bitworkr
     if possible_bitworkr:
         concat_str3 = item_name + ':' + 'any' + ':' + possible_bitworkr + ':' + main + ':' + main_hash
         if check_validate_proof(concat_str3):
-            return True
+            return True, concat_str3
 
     if possible_bitworkc and possible_bitworkr:
         concat_str4 = item_name + ':' + possible_bitworkc + ':' + possible_bitworkr + ':' + main + ':' + main_hash
         if check_validate_proof(concat_str4):
-            return True
+            return True, concat_str4
 
-    return False
+    return False, None
