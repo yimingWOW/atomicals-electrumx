@@ -1613,7 +1613,9 @@ def validate_dmitem_mint_args_with_container_dmint(mint_args, mint_data_payload,
     main_hash = double_sha256(main_data)
 
     print(f'validate_dmitem_mint_args_with_container_dmint: merkle={merkle} main={main} main_hash={main_hash.hex()}, request_dmitem={request_dmitem} proof={proof}')
-    is_proof_valid, target_vector = validate_merkle_proof_dmint(merkle, request_dmitem, main, main_hash.hex(), proof)
+    bitworkc = args.get('bitworkc')
+    bitworkr = args.get('bitworkr')
+    is_proof_valid, target_vector = validate_merkle_proof_dmint(merkle, request_dmitem, bitworkc, bitworkr, main, main_hash.hex(), proof)
     return is_proof_valid
 
 def get_container_dmint_format_status(dmint):
