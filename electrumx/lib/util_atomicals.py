@@ -1672,7 +1672,7 @@ def validate_merkle_proof_dmint(expected_root_hash, item_name, possible_bitworkc
     # specific_bitworkc/specific_bitworkr
 
     def check_validate_proof(concatted_str):
-        target_hash = sha256(concat_str.encode())
+        target_hash = sha256(concatted_str.encode())
         mt = MerkleTools()
         formatted_proof = []
         for item in proof:
