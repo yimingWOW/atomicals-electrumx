@@ -1671,7 +1671,7 @@ def validate_merkle_proof_dmint(expected_root_hash, item_name, possible_bitworkc
     # any/specific_bitworkr
     # specific_bitworkc/specific_bitworkr
 
-    def check_validate_proof(concatted_str):
+    def check_validate_proof(concatted_str, proof):
         target_hash = sha256(concatted_str.encode())
         mt = MerkleTools()
         formatted_proof = []
@@ -1688,24 +1688,24 @@ def validate_merkle_proof_dmint(expected_root_hash, item_name, possible_bitworkc
 
     # Case 1: any/any
     concat_str1 = item_name + ':' + 'any' + ':' + 'any' + ':' + main + ':' + main_hash
-    if check_validate_proof(concat_str1):
+    if check_validate_proof(concat_str1, proof):
         return True, concat_str1
 
     # Case 2: specific_bitworkc/any
     if possible_bitworkc:
         concat_str2 = item_name + ':' + possible_bitworkc + ':' + 'any' + ':' + main + ':' + main_hash
-        if check_validate_proof(concat_str2):
+        if check_validate_proof(concat_str2, proof):
             return True, concat_str2
 
     # Case 3: any/specific_bitworkr
     if possible_bitworkr:
         concat_str3 = item_name + ':' + 'any' + ':' + possible_bitworkr + ':' + main + ':' + main_hash
-        if check_validate_proof(concat_str3):
+        if check_validate_proof(concat_str3, proof):
             return True, concat_str3
 
     if possible_bitworkc and possible_bitworkr:
         concat_str4 = item_name + ':' + possible_bitworkc + ':' + possible_bitworkr + ':' + main + ':' + main_hash
-        if check_validate_proof(concat_str4):
+        if check_validate_proof(concat_str4, proof):
             return True, concat_str4
 
     return False, None
