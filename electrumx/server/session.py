@@ -1618,9 +1618,10 @@ class ElectrumX(SessionBase):
         
         self.logger.info(f'proof {proof}')
         applicable_rule, state_at_height = self.session_mgr.bp.get_applicable_rule_by_height(found_parent_atomical_id, item_name, height - MINT_SUBNAME_RULES_BECOME_EFFECTIVE_IN_BLOCKS, DMINT_PATH)
-        proof_valid, target_vector = validate_merkle_proof_dmint(dmint['merkle'], item_name, bitworkc, bitworkr, main_name, main_hash, proof)
+        proof_valid, target_vector, target_hash = validate_merkle_proof_dmint(dmint['merkle'], item_name, bitworkc, bitworkr, main_name, main_hash, proof)
         if applicable_rule and applicable_rule.get('matched_rule'):
             applicable_rule = applicable_rule.get('matched_rule')
+        
         return_result = {
             'status': status, 
             'candidate_atomical_id': candidate_atomical_id, 
@@ -1629,7 +1630,9 @@ class ElectrumX(SessionBase):
             'type': 'item',
             'applicable_rule': applicable_rule,
             'proof_valid': proof_valid,
-            'target_vector': target_vector
+            'target_vector': target_vector,
+            'target_hash': target_hash,
+            'dmint': state_at_height.get('dmint')
         }
         return {
             'result': return_result

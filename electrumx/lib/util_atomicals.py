@@ -1615,7 +1615,7 @@ def validate_dmitem_mint_args_with_container_dmint(mint_args, mint_data_payload,
     print(f'validate_dmitem_mint_args_with_container_dmint: merkle={merkle} main={main} main_hash={main_hash.hex()}, request_dmitem={request_dmitem} proof={proof}')
     bitworkc = args.get('bitworkc')
     bitworkr = args.get('bitworkr')
-    is_proof_valid, target_vector = validate_merkle_proof_dmint(merkle, request_dmitem, bitworkc, bitworkr, main, main_hash.hex(), proof)
+    is_proof_valid, target_vector, target_hash = validate_merkle_proof_dmint(merkle, request_dmitem, bitworkc, bitworkr, main, main_hash.hex(), proof)
     return is_proof_valid
 
 def get_container_dmint_format_status(dmint):
@@ -1673,8 +1673,7 @@ def validate_merkle_proof_dmint(expected_root_hash, item_name, possible_bitworkc
     # any/specific_bitworkr
     # specific_bitworkc/specific_bitworkr
 
-    def check_validate_proof(concatted_str, proof):
-        target_hash = sha256(concatted_str.encode())
+    def check_validate_proof(target_hash, proof):
         mt = MerkleTools()
         formatted_proof = []
         for item in proof:
@@ -1686,28 +1685,32 @@ def validate_merkle_proof_dmint(expected_root_hash, item_name, possible_bitworkc
                 formatted_proof.append({
                     'left': item['d']
                 })
-        return mt.validate_proof(formatted_proof, target_hash.hex(), expected_root_hash) 
+        return mt.validate_proof(formatted_proof, target_hash, expected_root_hash) 
 
     # Case 1: any/any
     concat_str1 = item_name + ':' + 'any' + ':' + 'any' + ':' + main + ':' + main_hash
-    if check_validate_proof(concat_str1, proof):
-        return True, concat_str1
+    target_hash = sha256(concat_str1.encode()).hex()
+    if check_validate_proof(target_hash, proof):
+        return True, concat_str1, target_hash
 
     # Case 2: specific_bitworkc/any
     if possible_bitworkc:
         concat_str2 = item_name + ':' + possible_bitworkc + ':' + 'any' + ':' + main + ':' + main_hash
-        if check_validate_proof(concat_str2, proof):
-            return True, concat_str2
+        target_hash = sha256(concat_str2.encode()).hex()
+        if check_validate_proof(target_hash, proof):
+            return True, concat_str2, target_hash
 
     # Case 3: any/specific_bitworkr
     if possible_bitworkr:
         concat_str3 = item_name + ':' + 'any' + ':' + possible_bitworkr + ':' + main + ':' + main_hash
-        if check_validate_proof(concat_str3, proof):
-            return True, concat_str3
+        target_hash = sha256(concat_str3.encode()).hex()
+        if check_validate_proof(target_hash, proof):
+            return True, concat_str3, target_hash
 
     if possible_bitworkc and possible_bitworkr:
         concat_str4 = item_name + ':' + possible_bitworkc + ':' + possible_bitworkr + ':' + main + ':' + main_hash
-        if check_validate_proof(concat_str4, proof):
-            return True, concat_str4
+        target_hash = sha256(concat_str4.encode()).hex()
+        if check_validate_proof(target_hash, proof):
+            return True, concat_str4, target_hash
 
-    return False, None
+    return False, None, None
