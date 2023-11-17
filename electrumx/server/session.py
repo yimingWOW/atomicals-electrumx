@@ -1589,13 +1589,11 @@ class ElectrumX(SessionBase):
             found_parent_atomical_id = candidate_atomical_id
         else: 
             raise RPCError(BAD_REQUEST, f'Container does not exist')
-
         compact_atomical_id = location_id_bytes_to_compact(found_parent_atomical_id)
         container_info = await self.atomical_id_get(compact_atomical_id)
         # If it is a dmint container then there is no items field, instead construct it from the dmitems
         container_dmint_status = container_info.get('$container_dmint_status')
         errors = container_dmint_status.get('errors')
-
         if not container_dmint_status or container_dmint_status.get('status') != 'valid':
             errors = container_dmint_status.get('errors')
             if check_without_sealed and errors and len(errors) == 1 and errors[0] == 'container not sealed':
@@ -1616,7 +1614,6 @@ class ElectrumX(SessionBase):
         if not proof or not isinstance(proof, list) or len(proof) == 0:
             raise RPCError(BAD_REQUEST, f'Proof must be provided')    
         
-        self.logger.info(f'proof {proof}')
         applicable_rule, state_at_height = self.session_mgr.bp.get_applicable_rule_by_height(found_parent_atomical_id, item_name, height - MINT_SUBNAME_RULES_BECOME_EFFECTIVE_IN_BLOCKS, DMINT_PATH)
         proof_valid, target_vector, target_hash = validate_merkle_proof_dmint(dmint['merkle'], item_name, bitworkc, bitworkr, main_name, main_hash, proof)
         if applicable_rule and applicable_rule.get('matched_rule'):
@@ -2395,7 +2392,7 @@ class ElectrumX(SessionBase):
             'blockchain.atomicals.get_by_ticker': self.atomicals_get_by_ticker,
             'blockchain.atomicals.get_by_container': self.atomicals_get_by_container,
             'blockchain.atomicals.get_by_container_item': self.atomicals_get_by_container_item,
-            'blockchain.atomicals.get_by_container_item_validation': self.atomicals_get_by_container_item_validation,
+            'blockchain.atomicals.get_by_container_item_validate': self.atomicals_get_by_container_item_validation,
             'blockchain.atomicals.get_container_items': self.atomicals_get_container_items,
             'blockchain.atomicals.get_ft_info': self.atomicals_get_ft_info,
             'blockchain.atomicals.find_tickers': self.atomicals_search_tickers,

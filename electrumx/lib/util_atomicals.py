@@ -1227,7 +1227,6 @@ def calculate_latest_state_from_mod_history(mod_history):
 def validate_rules_data(namespace_data):
     if not namespace_data or not isinstance(namespace_data, dict):
         return None 
-
     return validate_rules(namespace_data)
 
 # Validate the rules array data for subrealm mints
@@ -1256,30 +1255,24 @@ def validate_rules(namespace_data):
             return None 
         # regex is the first pattern that will be checked to match for minting a subrealm
         regex_pattern = rule_set_entry.get('p')
-
         if not isinstance(regex_pattern, str):
             print_subrealm_calculate_log(f'regex pattern is not a string')
             return None  
-    
         if len(regex_pattern) > MAX_SUBNAME_RULE_SIZE_LEN or len(regex_pattern) < 1:
             print_subrealm_calculate_log(f'rule empty or too large')
             return None # Reject if the rule has more than MAX_SUBNAME_RULE_SIZE_LEN chars
-
         # Output is the output script that must be paid to mint the subrealm
         outputs = rule_set_entry.get('o')
         bitworkc = rule_set_entry.get('bitworkc')
         bitworkr = rule_set_entry.get('bitworkr')
-
         if not regex_pattern:
             return None
-
         # Check that regex is a valid regex pattern
         try:
-            valid_pattern = re.compile(rf"{regex_pattern}")
+            re.compile(rf"{regex_pattern}")
         except Exception as e: 
             print_subrealm_calculate_log(f'Regex compile error {e}')
             return None # Reject if one of the regexe's could not be compiled.
-            
         # Build the price point (ie: could be paid in sats, ARC20 or bitwork)
         price_point = {
             'p': regex_pattern
@@ -1287,7 +1280,6 @@ def validate_rules(namespace_data):
         # There must be at least one rule type for minting
         if not outputs and not bitworkc and not bitworkr:
             return None 
-
         # Sanity check that bitworkc and bitworkr must be at least well formatted if they are set
         if bitworkc:
             valid_str, bitwork_parts = is_valid_bitwork_string(bitworkc)
@@ -1297,7 +1289,6 @@ def validate_rules(namespace_data):
                 price_point['bitworkc'] = bitworkc
             else:
                 return None
-
         if bitworkr:
             valid_str, bitwork_parts = is_valid_bitwork_string(bitworkr)
             if valid_str:
@@ -1306,7 +1297,6 @@ def validate_rules(namespace_data):
                 price_point['bitworkr'] = bitworkr
             else:
                 return None 
-
         if outputs:
             # check for a list of outputs
             if not isinstance(outputs, dict) or len(outputs.keys()) < 1:
@@ -1315,7 +1305,6 @@ def validate_rules(namespace_data):
 
             if not validate_subrealm_rules_outputs_format(outputs):
                 return None 
-            
             price_point['o'] = outputs
             validated_rules_list.append(price_point)
         elif bitworkc or bitworkr:
@@ -1336,7 +1325,6 @@ def assign_expected_outputs_basic(atomical_id, ft_value, tx, start_out_idx):
     idx_count = 0
     if start_out_idx >= len(tx.outputs):
         return False, expected_output_indexes
-    
     for out_idx, txout in enumerate(tx.outputs): 
         # Only consider outputs from the starting index
         if idx_count < start_out_idx:
@@ -1589,29 +1577,23 @@ def validate_dmitem_mint_args_with_container_dmint(mint_args, mint_data_payload,
             if not d or not isinstance(d, str) or len(d) != 64:
                 print(f'validate_dmitem_mint_args_with_container_dmint: proof data hash is not 64 hex characters')
                 return False
-
     expect_immutable_value = dmint.get('immutable', False)
     if expect_immutable_value:
         args_i = args.get('i')
         if not args_i or not isinstance(args_i, bool):
             print(f'validate_dmitem_mint_args_with_container_dmint: immutable is expected')
             return False
-
     request_dmitem = args.get('request_dmitem')
     merkle = dmint.get('merkle')
-
     main = args.get('main')
     if not main or not isinstance(main, str):
         print(f'validate_dmitem_mint_args_with_container_dmint: main is not valid str')
-        
         return False
-        
     main_data = mint_data_payload.get(main)
     if not main_data:
         print(f'get_dmitem_parent_container_info: main element is not defined')
         return False
     main_hash = double_sha256(main_data)
-
     print(f'validate_dmitem_mint_args_with_container_dmint: merkle={merkle} main={main} main_hash={main_hash.hex()}, request_dmitem={request_dmitem} proof={proof}')
     bitworkc = args.get('bitworkc')
     bitworkr = args.get('bitworkr')
