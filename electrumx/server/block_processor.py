@@ -39,7 +39,8 @@ from electrumx.lib.util_atomicals import (
     pad_bytes_n, 
     has_requested_proof_of_work, 
     is_valid_container_string_name, 
-    is_op_return_payment_marker_atomical_id, 
+    is_op_return_subrealm_payment_marker_atomical_id, 
+    is_op_return_dmitem_payment_marker_atomical_id,
     SUBREALM_MINT_PATH,
     SUBNAME_MIN_PAYMENT_DUST_LIMIT,
     DMINT_PATH,
@@ -62,7 +63,8 @@ from electrumx.lib.util_atomicals import (
     validate_rules_data,
     AtomicalsValidationError,
     get_container_dmint_format_status,
-    validate_dmitem_mint_args_with_container_dmint
+    validate_dmitem_mint_args_with_container_dmint,
+    validate_swap_definition
 )
 
 import copy
@@ -1552,10 +1554,10 @@ class BlockProcessor:
         for atomical_id, mint_info in sorted(ft_atomicals.items()):
             expected_output_indexes = []
             remaining_value = mint_info['value']
-            # The FT type has the 'skip' (y) method which allows us to selectively skip a certain total number of token units (satoshis)
+            # The FT type has the 'split' (y) method which allows us to selectively split (skip) a certain total number of token units (satoshis)
             # before beginning to color the outputs.
             # Essentially this makes it possible to "split" out multiple FT's located at the same input
-            # If the input at index 0 has the skip operation, then it will apply for the atomical token generally across all inputs and the first output will be skipped
+            # If the input at index 0 has the split operation, then it will apply for the atomical token generally across all inputs and the first output will be skipped
             total_amount_to_skip = 0
             # Uses the compact form of atomical id as the keys for developer convenience
             compact_atomical_id = location_id_bytes_to_compact(atomical_id)
@@ -1698,6 +1700,28 @@ class BlockProcessor:
             put_general_data = self.general_data_cache.__setitem__
             put_general_data(the_key, operations_found_at_inputs['payload_bytes'])
         return True
+
+    def create_or_delete_swap_location(self, tx_hash, tx, operations_found_at_inputs, Delete=False):
+        if not operations_found_at_inputs or operations_found_at_inputs['op'] != 'swp' or not validate_swap_definition(operations_found_at_inputs['payload_bytes']):
+            return False
+        txout = tx.txouts[0]
+        the_key = b'swp' + tx_hash + pack_le_uint32(0) + txout.pk_script
+        if Delete:
+            self.delete_general_data(the_key)
+        else: 
+            put_general_data = self.general_data_cache.__setitem__
+            put_general_data(the_key, operations_found_at_inputs['payload_bytes'])
+        return True
+
+    def get_swap_location(self, tx_hash, tx_idx, pk_script):
+        idx_packed = pack_le_uint32(tx_idx)
+        return self.get_general_data_with_cache(b'swp' + tx_hash + idx_packed + pk_script)
+    
+    def get_swap_location_decoded(self, tx_hash, tx_idx, pk_script):
+        swap_location = self.get_swap_location(tx_hash, tx_idx, pk_script)
+        if not swap_location:
+            return False 
+        return loads(swap_location)
 
     # create or delete the proof of work records
     def create_or_delete_pow_records(self, tx_hash, tx_num, height, operations_found_at_inputs, Delete=False):
@@ -2709,6 +2733,7 @@ class BlockProcessor:
                     append_hashX(double_sha256(created_atomical_id))
                     self.logger.info(f'advance_txs: create_or_delete_atomical created_atomical_id atomical_id={created_atomical_id.hex()}, tx_hash={hash_to_hex_str(tx_hash)}')
 
+
                 # Color the outputs of any transferred NFT/FT atomicals according to the rules
                 atomical_ids_transferred = self.color_atomicals_outputs(atomicals_operations_found_at_inputs, atomicals_spent_at_inputs, tx, tx_hash, tx_num, height, is_unspendable)
                 for atomical_id in atomical_ids_transferred:
@@ -2733,6 +2758,10 @@ class BlockProcessor:
           
                 # Check if there were any regular 'dat' files definitions
                 if self.create_or_delete_data_location(tx_hash, atomicals_operations_found_at_inputs):
+                    has_at_least_one_valid_atomicals_operation = True
+
+                # Check if there were any regular 'dat' files definitions
+                if self.create_or_delete_swap_location(tx_hash, tx, atomicals_operations_found_at_inputs):
                     has_at_least_one_valid_atomicals_operation = True
 
                 # Create a proof of work record if there was valid proof of work attached
@@ -2769,7 +2798,7 @@ class BlockProcessor:
         # Add the new UTXOs
         found_atomical_id_for_potential_subrealm = None
         for idx, txout in enumerate(tx.outputs):
-            found_atomical_id_for_potential_subrealm = is_op_return_payment_marker_atomical_id(txout.pk_script)
+            found_atomical_id_for_potential_subrealm = is_op_return_subrealm_payment_marker_atomical_id(txout.pk_script)
             if found_atomical_id_for_potential_subrealm:
                 self.logger.info(f'create_or_delete_subrealm_payment_output_if_valid: found_atomical_id_for_potential_subrealm tx_hash={hash_to_hex_str(tx_hash)}, {location_id_bytes_to_compact(found_atomical_id_for_potential_subrealm)}')
                 break
@@ -2853,7 +2882,7 @@ class BlockProcessor:
         # Add the new UTXOs
         found_atomical_id_for_potential_dmitem = None
         for idx, txout in enumerate(tx.outputs):
-            found_atomical_id_for_potential_dmitem = is_op_return_payment_marker_atomical_id(txout.pk_script)
+            found_atomical_id_for_potential_dmitem = is_op_return_dmitem_payment_marker_atomical_id(txout.pk_script)
             if found_atomical_id_for_potential_dmitem:
                 self.logger.info(f'create_or_delete_dmitem_payment_output_if_valid: found_atomical_id_for_potential_dmitem tx_hash={hash_to_hex_str(tx_hash)}, {location_id_bytes_to_compact(found_atomical_id_for_potential_dmitem)}')
                 break
@@ -3207,6 +3236,9 @@ class BlockProcessor:
 
             # Check if there were any regular 'dat' files definitions to delete
             self.create_or_delete_data_location(tx_hash, operations_found_at_inputs, True)
+
+            # Check if there were any 'swp' definitions to delete
+            self.create_or_delete_swap_location(tx_hash,tx, operations_found_at_inputs, True)
 
             # Check a proof of work record if there was valid proof of work attached to delete
             self.create_or_delete_pow_records(tx_hash, tx_num, self.height, operations_found_at_inputs, True)

@@ -943,6 +943,8 @@ def parse_operation_from_script(script, n):
             atom_op_decoded = 'dmt'  # dmt - Mint tokens of distributed mint type (dft)
         elif atom_op == "03646174": 
             atom_op_decoded = 'dat'  # dat - Store data on a transaction (dat)
+        elif atom_op == "03737770": 
+            atom_op_decoded = 'swp'  # swp - Put atomicals into swap mode
     
         if atom_op_decoded:
             return atom_op_decoded, parse_atomicals_data_definition_operation(script, n + three_letter_op_len)
@@ -975,7 +977,7 @@ def parse_operation_from_script(script, n):
     return None, None
 
 # Check for a payment marker and return the potential atomical id being indicate that is paid in current tx
-def is_op_return_payment_marker_atomical_id(script):
+def is_op_return_subrealm_payment_marker_atomical_id(script):
     if not script:
         return None 
     
@@ -1008,7 +1010,44 @@ def is_op_return_payment_marker_atomical_id(script):
 
     # Return the potential atomical id that the payment marker is associated with
     return script[start_index+5+2+1:start_index+5+2+1+36]
+
+
+# Check for a payment marker and return the potential atomical id being indicate that is paid in current tx
+def is_op_return_dmitem_payment_marker_atomical_id(script):
+    if not script:
+        return None 
     
+    # The output script is too short
+    if len(script) < (1+5+2+1+36): # 6a04<atom><01>d<atomical_id>
+        return None 
+
+    # Ensure it is an OP_RETURN
+    first_byte = script[:1]
+    second_bytes = script[:2]
+
+    if second_bytes != b'\x00\x6a' and first_byte != b'\x6a':
+        return None
+
+    start_index = 1
+    if second_bytes == b'\x00\x6a':
+        start_index = 2
+
+    # Check for the envelope format
+    if script[start_index:start_index+5].hex() != ATOMICALS_ENVELOPE_MARKER_BYTES:
+        return None 
+
+    # Check the next op code matches b'p' for payment
+    if script[start_index+5:start_index+5+2].hex() != '0164':
+        return None 
+    
+    # Check there is a 36 byte push data
+    if script[start_index+5+2:start_index+5+2+1].hex() != '24':
+        return None 
+
+    # Return the potential atomical id that the payment marker is associated with
+    return script[start_index+5+2+1:start_index+5+2+1+36]
+    
+
 # Parses and detects valid Atomicals protocol operations in a witness script
 # Stops when it finds the first operation in the first input
 def parse_protocols_operations_from_witness_for_input(txinwitness):
@@ -1223,6 +1262,28 @@ def calculate_latest_state_from_mod_history(mod_history):
             apply_set_state_mutation(current_object_state, element['data'], True)
     else: 
         return current_object_state
+
+# Validate that the atomic swap seller reqruest operation is in valid format
+def validate_swap_definition(payload_data):
+    if not payload_data or not instance(payload_data, dict) or len(payload_data) == 0:
+        return False
+    # For each key ensure it is in the form of:
+    for output_script, expected_output_type_value in payload_data.items():
+        if not is_hex_string(output_script):
+            return False
+        expected_output_type_value = expected_output_type_value.get('v')
+        if not expected_output_type_value.get('v'):
+            return False 
+        if not isinstance(expected_output_type_value, int):
+            return False
+        if expected_output_type_value <= 0:
+            return False
+        # Now check if id provided that it's a validate compact location
+        expected_output_type_id = expected_output_type_value.get('id')
+        if expected_output_type_id:
+            if not is_compact_atomical_id(expected_output_type_id):
+                return False
+    return payload_data 
 
 def validate_rules_data(namespace_data):
     if not namespace_data or not isinstance(namespace_data, dict):
