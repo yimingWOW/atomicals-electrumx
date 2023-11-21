@@ -664,6 +664,7 @@ class Bitcoin(BitcoinMixin, Coin):
     ]
     ATOMICALS_ACTIVATION_HEIGHT = 808080
     ATOMICALS_ACTIVATION_HEIGHT_DMINT = 830000 
+    ATOMICALS_ACTIVATION_HEIGHT_SWAP = 825000 
 
     @classmethod
     def warn_old_client_on_tx_broadcast(cls, client_ver):
@@ -929,6 +930,7 @@ class BitcoinTestnet(BitcoinTestnetMixin, Coin):
     ]
     ATOMICALS_ACTIVATION_HEIGHT = 2505238
     ATOMICALS_ACTIVATION_HEIGHT_DMINT = 2505238
+    ATOMICALS_ACTIVATION_HEIGHT_SWAP = 2505238
 
     @classmethod
     def warn_old_client_on_tx_broadcast(cls, client_ver):

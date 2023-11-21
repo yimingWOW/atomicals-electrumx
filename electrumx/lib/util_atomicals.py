@@ -68,8 +68,11 @@ MINT_SUBNAME_COMMIT_PAYMENT_DELAY_BLOCKS = 15 # ~2.5 hours.
 # that they won the realm (and no one else can claim/reveal)
 
 # The Envelope is for the reveal script and also the op_return payment markers
-# "atom" # 0461746f6d  '61747269' '0461747269'
+# "atom" 
 ATOMICALS_ENVELOPE_MARKER_BYTES = '0461746f6d'
+
+# "as" # 6173 used for setting up NFT/FT OP_RETURN marker
+ATOMICALS_SWAP_ENVELOPE_MARKER_BYTES = '026173'
 
 # Limit the smallest payment amount allowed for a subrealm
 SUBNAME_MIN_PAYMENT_DUST_LIMIT = 0 # It can be possible to do free
@@ -87,7 +90,7 @@ DFT_MINT_AMOUNT_MAX = 100000000
 
 # The minimum number of DFT max_mints. Set at 1
 DFT_MINT_MAX_MIN_COUNT = 1
-# The maximum number of DFT max_mints. Set at 200,000 mints mainly for efficieny reasons. Could be expanded in the future
+# The maximum number of DFT max_mints. Set at 500,000 mints mainly for efficieny reasons. Could be expanded in the future
 DFT_MINT_MAX_MAX_COUNT = 500000
 
 # This would never change, but we put it as a constant for clarity
@@ -897,6 +900,21 @@ def parse_push_data(op, n, script):
         data = script[n : n + dlen]
     return data, n + dlen, dlen
 
+# Parses all the push datas into an array
+def parse_push_data_into_array(script, n):
+    push_datas = []
+    try:
+        script_entry_len = len(script)
+        while n < script_entry_len:
+            op = script[n]
+            n += 1
+            if op <= OpCodes.OP_PUSHDATA4:
+                data, n, dlen = parse_push_data(op, n, script)
+                push_datas.append(data)
+        return push_datas
+    except Exception as e:
+        raise ScriptError(f'parse_push_data_into_array script error {e}') from None
+
 # Parses all of the push datas in a script and then concats/accumulates the bytes together
 # It allows the encoding of a multi-push binary data across many pushes
 def parse_atomicals_data_definition_operation(script, n):
@@ -916,6 +934,7 @@ def parse_atomicals_data_definition_operation(script, n):
         return accumulated_encoded_bytes
     except Exception as e:
         raise ScriptError(f'parse_atomicals_data_definition_operation script error {e}') from None
+
 
 # Parses the valid operations in an Atomicals script
 def parse_operation_from_script(script, n):
@@ -943,7 +962,6 @@ def parse_operation_from_script(script, n):
             atom_op_decoded = 'dmt'  # dmt - Mint tokens of distributed mint type (dft)
         elif atom_op == "03646174": 
             atom_op_decoded = 'dat'  # dat - Store data on a transaction (dat)
-    
         if atom_op_decoded:
             return atom_op_decoded, parse_atomicals_data_definition_operation(script, n + three_letter_op_len)
     
@@ -1014,9 +1032,9 @@ def is_op_return_subrealm_payment_marker_atomical_id(script):
 def is_op_return_dmitem_payment_marker_atomical_id(script):
     if not script:
         return None 
-    
+ 
     # The output script is too short
-    if len(script) < (1+5+2+1+36): # 6a04<atom><01>p<atomical_id>
+    if len(script) < (1+5+2+1+36): # 6a04<atom><01>d<atomical_id>
         return None 
 
     # Ensure it is an OP_RETURN
@@ -1044,6 +1062,52 @@ def is_op_return_dmitem_payment_marker_atomical_id(script):
 
     # Return the potential atomical id that the payment marker is associated with
     return script[start_index+5+2+1:start_index+5+2+1+36]
+    
+# Check for swp marker
+def is_op_return_swap_marker_atomical_id(script):
+    if not script:
+        return None 
+ 
+    # The output script is too short
+    # OP_RETURN 3(as) + 4(sats) + 1(size byte) + 20-34(expected_output_script) + [ 1 (size byte) + 36 (atomical_id) ]
+    if len(script) < (3 + 1 + 4 + 1 + 20): 
+        return None 
+
+    # Ensure it is an OP_RETURN
+    first_byte = script[:1]
+    second_bytes = script[:2]
+
+    if second_bytes != b'\x00\x6a' and first_byte != b'\x6a':
+        return None
+
+    start_index = 1
+    if second_bytes == b'\x00\x6a':
+        start_index = 2
+
+    push_datas = parse_push_data_into_array(script, start_index)
+
+    if len(push_datas) < 3:
+        return None 
+
+    if push_datas[0].hex() != ATOMICALS_SWAP_ENVELOPE_MARKER_BYTES:
+        return None
+
+    if len(push_datas[1]) != 4:
+        return None 
+    
+    value, = unpack_le_uint32(push_datas[1])
+    script = push_datas[2]
+    atomical_id = None
+    if len(push_datas) == 4:
+        atomical_id = push_datas[3]
+        if not is_atomical_id_long_form_bytes(atomical_id):
+            return None 
+        
+    return {
+        'v': value,
+        'o': script,
+        'id': atomical_id # if applicable atomical id
+    }
     
 # Parses and detects valid Atomicals protocol operations in a witness script
 # Stops when it finds the first operation in the first input
@@ -1394,25 +1458,19 @@ def build_reverse_output_to_atomical_id_map(atomical_id_to_output_index_map):
             reverse_mapped[out_idx][atomical_id] = atomical_id
     return reverse_mapped 
 
- 
 # Calculate the colorings of tokens for utxos
-def calculate_outputs_to_color_for_atomical_ids(ft_atomicals, tx_hash, tx):
+def calculate_outputs_to_color_for_ft_atomical_ids(ft_atomicals, tx_hash, tx):
     num_fts = len(ft_atomicals.keys())
     if num_fts == 0:
         return None, None
-    print(f'calculate_outputs_to_color_for_atomical {num_fts}')
-
     atomical_list = []
     for atomical_id, ft_info in sorted(ft_atomicals.items()):
         atomical_list.append({
             'atomical_id': atomical_id,
             'ft_info': ft_info
         })
-        print(f'calculate_outputs_to_color_for_atomical_ids found_ft_atomical_inputs atomical_id={location_id_bytes_to_compact(atomical_id)}, ft_info={ft_info} tx_hash={hash_to_hex_str(tx_hash)}')
+        print(f'calculate_outputs_to_color_for_ft_atomical_ids found_ft_atomical_inputs atomical_id={location_id_bytes_to_compact(atomical_id)}, ft_info={ft_info} tx_hash={hash_to_hex_str(tx_hash)}')
     
-    print(f'calculate_outputs_to_color_for_atomical ft_atomicals={ft_atomicals}')
-    print(f'calculate_outputs_to_color_for_atomical atomical_list={atomical_list}')
-
     next_start_out_idx = 0
     potential_atomical_ids_to_output_idxs_map = {}
     non_clean_output_slots = False
@@ -1420,30 +1478,62 @@ def calculate_outputs_to_color_for_atomical_ids(ft_atomicals, tx_hash, tx):
         atomical_id = item['atomical_id']
         v = item['ft_info']['value']
         cleanly_assigned, expected_outputs = assign_expected_outputs_basic(atomical_id, v, tx, next_start_out_idx)
-        print(f'calculate_outputs_to_color_for_atomical_ids check_if_cleanly_assigned cleanly_assigned={cleanly_assigned} v={v} next_start_out_idx={next_start_out_idx} tx_hash={hash_to_hex_str(tx_hash)} atomical_id={location_id_bytes_to_compact(atomical_id)} v={v} next_start_out_idx={next_start_out_idx}')
+        print(f'calculate_outputs_to_color_for_ft_atomical_ids check_if_cleanly_assigned cleanly_assigned={cleanly_assigned} v={v} next_start_out_idx={next_start_out_idx} tx_hash={hash_to_hex_str(tx_hash)} atomical_id={location_id_bytes_to_compact(atomical_id)} v={v} next_start_out_idx={next_start_out_idx}')
         if cleanly_assigned and len(expected_outputs) > 0:
             next_start_out_idx = expected_outputs[-1] + 1
-            print(f'calculate_outputs_to_color_for_atomical_ids check_if_cleanly_assigned_after_in_if cleanly_assigned={cleanly_assigned} tx_hash={hash_to_hex_str(tx_hash)} atomical_id={location_id_bytes_to_compact(atomical_id)} value={v} next_start_out_idx={next_start_out_idx} expected_outputs={expected_outputs}')
+            print(f'calculate_outputs_to_color_for_ft_atomical_ids check_if_cleanly_assigned_after_in_if cleanly_assigned={cleanly_assigned} tx_hash={hash_to_hex_str(tx_hash)} atomical_id={location_id_bytes_to_compact(atomical_id)} value={v} next_start_out_idx={next_start_out_idx} expected_outputs={expected_outputs}')
             potential_atomical_ids_to_output_idxs_map[atomical_id] = expected_outputs
         else:
-            print(f'calculate_outputs_to_color_for_atomical_ids check_if_cleanly_assigned_after_in_if was_not_cleanly_assigned_else cleanly_assigned={cleanly_assigned} tx_hash={hash_to_hex_str(tx_hash)} atomical_id={location_id_bytes_to_compact(atomical_id)} value={v} next_start_out_idx={next_start_out_idx} expected_outputs={expected_outputs}')
+            print(f'calculate_outputs_to_color_for_ft_atomical_ids check_if_cleanly_assigned_after_in_if was_not_cleanly_assigned_else cleanly_assigned={cleanly_assigned} tx_hash={hash_to_hex_str(tx_hash)} atomical_id={location_id_bytes_to_compact(atomical_id)} value={v} next_start_out_idx={next_start_out_idx} expected_outputs={expected_outputs}')
             # Erase the potential for safety
             potential_atomical_ids_to_output_idxs_map = {}
             non_clean_output_slots = True
             break
     # If the output slots did not fit cleanly, then default to just assigning everything from the 0'th output index
     if non_clean_output_slots:
-        print(f'calculate_outputs_to_color_for_atomical_ids non_clean_output_slots {non_clean_output_slots} {ft_atomicals} ')
+        print(f'calculate_outputs_to_color_for_ft_atomical_ids non_clean_output_slots {non_clean_output_slots} {ft_atomicals} ')
         potential_atomical_ids_to_output_idxs_map = {}
         for item in atomical_list:
             atomical_id = item['atomical_id']
             cleanly_assigned, expected_outputs = assign_expected_outputs_basic(atomical_id, item['ft_info']['value'], tx, 0)
             potential_atomical_ids_to_output_idxs_map[atomical_id] = expected_outputs
-        print(f'calculate_outputs_to_color_for_atomical_ids non_clean_output_slots_finally_assignment_map {non_clean_output_slots} tx_hash={hash_to_hex_str(tx_hash)} {ft_atomicals} potential_atomical_ids_to_output_idxs_map={potential_atomical_ids_to_output_idxs_map}')
+        print(f'calculate_outputs_to_color_for_ft_atomical_ids non_clean_output_slots_finally_assignment_map {non_clean_output_slots} tx_hash={hash_to_hex_str(tx_hash)} {ft_atomicals} potential_atomical_ids_to_output_idxs_map={potential_atomical_ids_to_output_idxs_map}')
         return potential_atomical_ids_to_output_idxs_map, not non_clean_output_slots
     else:
-        print(f'calculate_outputs_to_color_for_atomical_ids underflow_val potential_atomical_ids_to_output_idxs_map={potential_atomical_ids_to_output_idxs_map}')
+        print(f'calculate_outputs_to_color_for_ft_atomical_ids underflow_val potential_atomical_ids_to_output_idxs_map={potential_atomical_ids_to_output_idxs_map}')
         return potential_atomical_ids_to_output_idxs_map, not non_clean_output_slots
+
+def calculate_outputs_to_color_for_ft_atomical_ids_v2(ft_atomicals, tx, start_output_idx):
+    num_fts = len(ft_atomicals.keys())
+    if num_fts == 0:
+        return None
+    atomical_list = []
+    for atomical_id, ft_info in ft_atomicals.items():
+        atomical_list.append({
+            'atomical_id': atomical_id,
+            'ft_info': ft_info
+        })
+        print(f'calculate_outputs_to_color_for_ft_atomical_ids found_ft_atomical_inputs atomical_id={location_id_bytes_to_compact(atomical_id)}, ft_info={ft_info}')
+    potential_atomical_ids_to_output_idxs_map = {}
+    for item in atomical_list:
+        atomical_id = item['atomical_id']
+        cleanly_assigned, expected_outputs = assign_expected_outputs_basic(atomical_id, item['ft_info']['value'], tx, start_output_idx)
+        potential_atomical_ids_to_output_idxs_map[atomical_id] = expected_outputs
+    print(f'calculate_outputs_to_color_for_ft_atomical_ids non_clean_output_slots_finally_assignment_map {non_clean_output_slots} {ft_atomicals} potential_atomical_ids_to_output_idxs_map={potential_atomical_ids_to_output_idxs_map}')
+    return potential_atomical_ids_to_output_idxs_map
+
+def calculate_nft_output_index(input_idx, tx, operations_found_at_inputs):
+    expected_output_index = input_idx
+    # If it was unspendable output, then just set it to the 0th location
+    # ...and never allow an NFT atomical to be burned accidentally by having insufficient number of outputs either
+    # The expected output index will become the 0'th index if the 'x' extract operation was specified or there are insufficient outputs
+    if expected_output_index >= len(tx.outputs) or is_unspendable_genesis(tx.outputs[expected_output_index].pk_script) or is_unspendable_legacy(tx.outputs[expected_output_index].pk_script):
+        expected_output_index = 0
+    # If this was the 'split' (y) command, then also move them to the 0th output
+    if operations_found_at_inputs and operations_found_at_inputs.get('op') == 'y' and operations_found_at_inputs.get('input_index') == 0:
+        expected_output_index = 0      
+    return expected_output_index
+
 
 # Get the candidate name request status for tickers, containers and realms (not subrealms though)
 # Base Status Values:

@@ -1348,7 +1348,10 @@ class DB:
                 # txnum_padding = bytes(8-TXNUM_LEN)
                 #tx_num_padded, = unpack_le_uint64(tx_numb + txnum_padding)
         return active_supply   
-            
+
+    def get_pk_script_at_location(self, location):
+        return self.utxo_db.get(b'po' + location)
+
     # Get the atomical details with location information added
     # In the case of NFTs, there will only be every 1 maximum active location
     # In the case of FTs, there can be an unbounded nu mber of maximum active locations (one for each UTXO for all holders)

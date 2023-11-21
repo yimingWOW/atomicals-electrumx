@@ -57,13 +57,16 @@ from electrumx.lib.util_atomicals import (
     is_valid_ticker_string, 
     get_mint_info_op_factory,
     convert_db_mint_info_to_rpc_mint_info_format,
-    calculate_outputs_to_color_for_atomical_ids,
+    calculate_outputs_to_color_for_ft_atomical_ids,
+    calculate_outputs_to_color_for_ft_atomical_ids_v2,
     build_reverse_output_to_atomical_id_map,
     calculate_latest_state_from_mod_history,
     validate_rules_data,
     AtomicalsValidationError,
     get_container_dmint_format_status,
-    validate_dmitem_mint_args_with_container_dmint
+    validate_dmitem_mint_args_with_container_dmint,
+    is_op_return_swap_marker_atomical_id,
+    calculate_nft_output_index
 )
 
 import copy
@@ -530,7 +533,7 @@ class BlockProcessor:
             cleanly_assigned = self.color_ft_atomicals_split(ft_atomicals, tx_hash, tx, 0, operations_found_at_inputs, [], False)
         else:
             # In the regular case we check if the rules are honored
-            cleanly_assigned = self.color_ft_atomicals_regular(ft_atomicals, tx_hash, tx, 0, operations_found_at_inputs, [], 0, False)
+            cleanly_assigned = self.color_ft_atomicals_regular(atomicals_spent_at_inputs, ft_atomicals, tx_hash, tx, 0, operations_found_at_inputs, [], 0, False)
         # Everything would have been cleanly assigned
         if cleanly_assigned:
             return True 
@@ -589,8 +592,13 @@ class BlockProcessor:
         if found_atomical_mint_info_for_potential_subrealm:
             # Found the mint information. Use the mint details to determine the parent realm id and name requested
             # Along with the price that was expected according to the mint reveal height
-            args_subrealm = found_atomical_mint_info_for_potential_subrealm['args'].get('request_subrealm')
-            request_subrealm = found_atomical_mint_info_for_potential_subrealm['$request_subrealm']
+            args = found_atomical_mint_info_for_potential_subrealm.get('args')
+            if not args:
+                return None, None, None
+            args_subrealm = args.get('request_subrealm')
+            if not args_subrealm:
+                return None, None, None
+            request_subrealm = args_subrealm.get('$request_subrealm')
             # Check that $request_subrealm was set because it will only be set if the basic validation succeeded
             # If it's not set, then the atomical subrealm mint was not valid on a basic level and must be rejected
             if not request_subrealm:
@@ -663,8 +671,13 @@ class BlockProcessor:
             return None, None, None
         # Found the mint information. Use the mint details to determine the parent realm id and name requested
         # Along with the price that was expected according to the mint reveal height
-        args_dmitem = found_atomical_mint_info_for_potential_dmitem['args'].get('request_dmitem')
-        request_dmitem = found_atomical_mint_info_for_potential_dmitem['$request_dmitem']
+        args = found_atomical_mint_info_for_potential_dmitem.get('args')
+        if not args:
+            return None, None, None
+        args_dmitem = args.get('request_dmitem')
+        if not args_dmitem:
+            return None, None, None
+        request_dmitem = args_subrealm.get('$request_dmitem')
         # Check that $request_dmitem was set because it will only be set if the basic validation succeeded
         # If it's not set, then the atomical dm item mint was not valid on a basic level and must be rejected
         if not request_dmitem:
@@ -1401,26 +1414,6 @@ class BlockProcessor:
         self.general_data_cache.pop(the_key, None)
         self.db_deletes.append(the_key)
 
-    # Build a map of atomical id to the type, value, and input indexes
-    # This information is used below to assess which inputs are of which type and therefore which outputs to color
-    def build_atomical_id_info_map(self, map_atomical_ids_to_info, atomicals_entry_list, txin_index):
-        for atomicals_entry in atomicals_entry_list:
-            atomical_id = atomicals_entry['atomical_id']
-            value, = unpack_le_uint64(atomicals_entry['data'][HASHX_LEN + SCRIPTHASH_LEN : HASHX_LEN + SCRIPTHASH_LEN + 8])
-            atomical_mint_info = self.get_atomicals_id_mint_info(atomical_id)
-            if not atomical_mint_info: 
-                raise IndexError(f'build_atomical_id_info_map {atomical_id.hex()} not found in mint info. IndexError.')
-            if map_atomical_ids_to_info.get(atomical_id, None) == None:
-                map_atomical_ids_to_info[atomical_id] = {
-                    'atomical_id': atomical_id,
-                    'type': atomical_mint_info['type'],
-                    'value': 0,
-                    'input_indexes': []
-                }
-            map_atomical_ids_to_info[atomical_id]['value'] += value
-            map_atomical_ids_to_info[atomical_id]['input_indexes'].append(txin_index)
-        return map_atomical_ids_to_info
-    
     # Detect and apply updates-related like operations for an atomical such as mod/evt/sl
     def put_or_delete_state_updates(self, operations_found_at_inputs, atomical_id, tx_num, tx_hash, output_idx_le, height, apply_type, Delete):
         if not operations_found_at_inputs:
@@ -1485,8 +1478,6 @@ class BlockProcessor:
                 0,
                 Delete
             )
-
-    # Color the NFT atomicals with splat command
     def color_nft_atomicals_splat(self, nft_atomicals, tx_hash, tx, tx_num, atomical_ids_touched):
         # Splat takes all of the NFT atomicals across all inputs (including multiple atomicals at the same utxo) 
         # and then seperates them into their own distinctive output such that the result of the operation is no two atomicals
@@ -1497,7 +1488,7 @@ class BlockProcessor:
         expected_output_index_incrementing = 0 # Begin assigning splatted atomicals at the 0'th index
         for atomical_id, mint_info in sorted(nft_atomicals.items()):
             expected_output_index = expected_output_index_incrementing
-            if expected_output_index_incrementing >= len(tx.outputs) or is_unspendable_genesis(tx.outputs[expected_output_index_incrementing].pk_script):
+            if expected_output_index_incrementing >= len(tx.outputs) or is_unspendable_genesis(tx.outputs[expected_output_index_incrementing].pk_script) or is_unspendable_legacy(tx.outputs[expected_output_index_incrementing].pk_script):
                 expected_output_index = 0
             output_idx_le = pack_le_uint32(expected_output_index)
             location = tx_hash + output_idx_le
@@ -1512,22 +1503,21 @@ class BlockProcessor:
             atomical_ids_touched.append(atomical_id)
             expected_output_index_incrementing += 1 
 
-    def color_nft_atomicals_regular(self, operations_found_at_inputs, nft_atomicals, tx_hash, tx, tx_num, atomical_ids_touched, height):
+    def color_nft_atomicals_regular(self, operations_found_at_inputs, atomicals_spent_at_inputs, nft_atomicals, tx_hash, tx, tx_num, atomical_ids_touched, height):
         put_general_data = self.general_data_cache.__setitem__
         # Process NFTs the normal way if splat was not requested or if the splat is invalid because there were not enough outputs
         for atomical_id, mint_info in nft_atomicals.items():
             if len(mint_info['input_indexes']) > 1:
                 raise IndexError(f'atomical location len is greater than 1. Critical developer or index error. AtomicalId={atomical_id.hex()}')
-            # The expected output index is equal to the input index...
-            expected_output_index = mint_info['input_indexes'][0]
-            # If it was unspendable output, then just set it to the 0th location
-            # ...and never allow an NFT atomical to be burned accidentally by having insufficient number of outputs either
-            # The expected output index will become the 0'th index if the 'x' extract operation was specified or there are insufficient outputs
-            if expected_output_index >= len(tx.outputs) or is_unspendable_genesis(tx.outputs[expected_output_index].pk_script):
-                expected_output_index = 0
-            # If this was the 'split' (y) command, then also move them to the 0th output
-            if operations_found_at_inputs and operations_found_at_inputs.get('op') == 'y' and operations_found_at_inputs.get('input_index') == 0:
-                expected_output_index = 0 
+
+            # The expected output index is equal to the input index normally
+            expected_output_index = calculate_nft_output_index(mint_info['input_indexes'][0], tx, operations_found_at_inputs)
+            
+            if height >= self.coin.ATOMICALS_ACTIVATION_HEIGHT_SWAP:
+                # However if a valid swap was detected, then the NFT will move to the 1st output instead
+                if mint_info['input_indexes'][0] == 0 and self.is_nft_swap_valid(tx, atomicals_spent_at_inputs, operations_found_at_inputs):
+                    expected_output_index = 1
+
             output_idx_le = pack_le_uint32(expected_output_index)
             location = tx_hash + output_idx_le
             txout = tx.outputs[expected_output_index]
@@ -1553,10 +1543,10 @@ class BlockProcessor:
         for atomical_id, mint_info in sorted(ft_atomicals.items()):
             expected_output_indexes = []
             remaining_value = mint_info['value']
-            # The FT type has the 'skip' (y) method which allows us to selectively skip a certain total number of token units (satoshis)
+            # The FT type has the 'split' (y) method which allows us to selectively split (skip) a certain total number of token units (satoshis)
             # before beginning to color the outputs.
             # Essentially this makes it possible to "split" out multiple FT's located at the same input
-            # If the input at index 0 has the skip operation, then it will apply for the atomical token generally across all inputs and the first output will be skipped
+            # If the input at index 0 has the split operation, then it will apply for the atomical token generally across all inputs and the first output will be skipped
             total_amount_to_skip = 0
             # Uses the compact form of atomical id as the keys for developer convenience
             compact_atomical_id = location_id_bytes_to_compact(atomical_id)
@@ -1592,11 +1582,149 @@ class BlockProcessor:
             atomical_ids_touched.append(atomical_id)
         return cleanly_assigned
 
-    def color_ft_atomicals_regular(self, ft_atomicals, tx_hash, tx, tx_num, operations_found_at_inputs, atomical_ids_touched, height, live_run):
-        atomical_id_to_expected_outs_map, cleanly_assigned = calculate_outputs_to_color_for_atomical_ids(ft_atomicals, tx_hash, tx)
+    def is_swap_staged(self, tx):
+        txin = tx.inputs[0]
+        if txin.prev_idx != 0:
+            return None 
+        spent_pk_script = self.get_general_data_with_cache(b'po' + txin.prev_hash + pack_le_uint32(txin.prev_idx))
+        # Also check that the current output at index 0 matches the pk_script
+        current_pk_script = tx.outputs[0].pk_script
+        if current_pk_script != spent_pk_script:
+            return None
+        # Check if the transaction was staged as a swap with the OP_RETURN data of previous tx
+        swap_def_found = self.get_swap_location_decoded(txin.prev_hash, txin.prev_idx, spent_pk_script)
+        # Also ensure no other operation was found, technically not needed since all operations must be at the 0th input and we are there
+        if swap_def_found:
+            expected_value = swap_def_found.get('v')
+            expected_output = swap_def_found.get('o')
+            expected_id = swap_def_found.get('id')
+            return {
+                'v': expected_value,
+                'o': expected_output,
+                'id': expected_id
+            }
+        return None 
+
+    def found_valid_payment(nft_atomical_id_to_output_idx_map, ft_atomical_id_to_outputs_map, tx, swap_def, from_start_index):
+        current = from_start_index
+        for output in tx.outputs[from_start_index:]
+            if swap_def['o'] == output.pk_script and output.value >= swap_dev['v']:
+                # No specific atomical was expected as payment
+                if not swap_def.get('id'):
+                    return True
+                # A specific NFT or FT was expected for payment, check if the curren output satisfied it
+                expected_atomical_id_at_this_output = swap_def.get('id')
+                # Check if there is an NFT that satisfies the payment rule
+                if nft_atomical_id_to_output_idx_map.get(expected_atomical_id_at_this_output):
+                    if nft_atomical_id_to_output_idx_map.get(expected_atomical_id_at_this_output) == current:
+                        return True
+                # Check if there is an FT that satisfies the payment rule
+                if ft_atomical_id_to_outputs_map.get(expected_atomical_id_at_this_output):
+                    if ft_atomical_id_to_outputs_map.get(expected_atomical_id_at_this_output):
+                        for ft_output_idx in ft_atomical_id_to_outputs_map.get(expected_atomical_id_at_this_output):
+                            if ft_output_idx == current:
+                                return True
+            current += 1
+        return False
+
+    def is_ft_swap_valid(self, tx, atomicals_spent_at_inputs, operations_found_at_inputs):
+        swap_def = self.is_swap_staged(tx)
+        if not swap_def:
+            return False, None
+        # Impossible becaus a swap always requires at least 3 inputs
+        if len(tx.outputs) < 3:
+            return False, None 
+        # Also ensure that the first two inputs cannot be unspendable op_return 
+        if is_unspendable_legacy(tx.outputs[0].pk_script) or is_unspendable_legacy(tx.outputs[1].pk_script):
+            return False, None
+        if is_unspendable_genesis(tx.outputs[0].pk_script) or is_unspendable_genesis(tx.outputs[1].pk_script):
+            return False, None
+        
+        # Get the value of the 0'th input and all associated atomicals
+        first_input = atomicals_spent_at_inputs.get(0)
+        if not first_input or len(first_input) == 0:
+            return False, None 
+
+        # Reconstruct the spent inputs, but ignoring the first input
+        atomicals_spent_at_inputs_without_first_input = {}
+        for idx, atomicals_list in atomicals_spent_at_inputs.items():
+            if idx > 0:
+                atomicals_spent_at_inputs_without_first_input[idx] = atomicals_list
+        # Then build the mapping of the reaminder tokens without the 0'th input and try to asset them starting from the 2nd output
+        output0_value = tx.outputs[0].value
+        output1_value = tx.outputs[1].value
+
+        map_atomical_ids_to_info_for_input0 = {}
+        self.build_atomical_id_info_map(map_atomical_ids_to_info_for_input0, first_input, 0)
+        # Ensure that the 0th and 1st outputs are less than or equal to input value for input0
+        for atomical_id, atomical_info in map_atomical_ids_to_info_for_input0.items():
+            if atomical_info['value'] < output0_value or atomical_info['value'] < output1_value:
+                return False, None
+        # If we got this far then output0 and output1 are candidates for the swap now provided the valid payment was made from the output2 and up
+        nft_atomicals, ft_atomicals = self.build_atomical_type_structs(atomicals_spent_at_inputs_without_first_input)
+        ft_atomical_id_to_outputs_map = calculate_outputs_to_color_for_ft_atomical_ids_v2(ft_atomicals, tx, 2)
+        nft_atomical_id_to_output_idx_map = {}
+        for atomical_id, atomical_info in nft_atomicals.items():
+            nft_atomical_id_to_output_idx_map[atomical_id] = calculate_nft_output_index(atomical_info['input_indexes'][0], tx, operations_found_at_inputs)
+        # Look for payment of NFT or FT in the transaction starting from the 2nd output
+        if self.found_valid_payment(nft_atomical_id_to_output_idx_map, ft_atomical_id_to_outputs_map, tx, swap_def, 2):
+            # A valid payment was found, therefore assign all the atomicals at input 0 to the 1st output
+            for atomical_id, atomical_info in map_atomical_ids_to_info_for_input0.items():
+                if atomical_info['type'] != 'FT':
+                    continue
+                ft_atomical_id_to_outputs_map[atomical_id] = ft_atomical_id_to_outputs_map[atomical_id] or []
+                ft_atomical_id_to_outputs_map[atomical_id].append(1)
+            return True, ft_atomical_id_to_outputs_map
+        return False, None
+
+    def is_nft_swap_valid(self, tx, atomicals_spent_at_inputs, operations_found_at_inputs):
+        swap_def = self.is_swap_staged(tx)
+        if not swap_def:
+            return False
+        # Impossible because a swap always requires at least 3 inputs
+        if len(tx.outputs) < 3:
+            return False 
+        # Also ensure that the first two inputs cannot be unspendable op_return 
+        if is_unspendable_legacy(tx.outputs[0].pk_script) or is_unspendable_legacy(tx.outputs[1].pk_script):
+            return False
+        if is_unspendable_genesis(tx.outputs[0].pk_script) or is_unspendable_genesis(tx.outputs[1].pk_script):
+            return False
+        
+        # Get the value of the 0'th input and all associated atomicals
+        first_input = atomicals_spent_at_inputs.get(0)
+        if not first_input or len(first_input) == 0:
+            return False
+
+        # Reconstruct the spent inputs, but ignoring the first input
+        atomicals_spent_at_inputs_without_first_input = {}
+        for idx, atomicals_list in atomicals_spent_at_inputs.items():
+            if idx > 0:
+                atomicals_spent_at_inputs_without_first_input[idx] = atomicals_list
+        # Then build the mapping of the reaminder tokens without the 0'th input and try to asset them starting from the 2nd output
+        output0_value = tx.outputs[0].value
+        output1_value = tx.outputs[1].value
+
+        map_atomical_ids_to_info_for_input0 = {}
+        self.build_atomical_id_info_map(map_atomical_ids_to_info_for_input0, first_input, 0)
+        # Ensure that the 0th and 1st outputs are less than or equal to input value for input0
+        for atomical_id, atomical_info in map_atomical_ids_to_info_for_input0.items():
+            if atomical_info['value'] < output0_value or atomical_info['value'] < output1_value:
+                return False
+        # If we got this far then output0 and output1 are candidates for the swap now provided the valid payment was made from the output2 and up
+        nft_atomicals, ft_atomicals = self.build_atomical_type_structs(atomicals_spent_at_inputs_without_first_input)
+        ft_atomical_id_to_outputs_map = calculate_outputs_to_color_for_ft_atomical_ids_v2(ft_atomicals, tx, 2)
+        nft_atomical_id_to_output_idx_map = {}
+        for atomical_id, atomical_info in nft_atomicals.items():
+            nft_atomical_id_to_output_idx_map[atomical_id] = calculate_nft_output_index(atomical_info['input_indexes'][0], tx, operations_found_at_inputs)
+        # Look for payment of NFT or FT in the transaction starting from the 2nd output
+        if self.found_valid_payment(nft_atomical_id_to_output_idx_map, ft_atomical_id_to_outputs_map, tx, swap_def, 2):
+            return True
+        return False
+
+    def color_ft_atomicals_regular_legacy(self, ft_atomicals, tx_hash, tx, tx_num, operations_found_at_inputs, atomical_ids_touched, height, live_run):
+        atomical_id_to_expected_outs_map, cleanly_assigned = calculate_outputs_to_color_for_ft_atomical_ids(ft_atomicals, tx_hash, tx)
         if not atomical_id_to_expected_outs_map:
             return None
-
         sanity_check_sums = {}
         for atomical_id, outputs_to_color in atomical_id_to_expected_outs_map.items():
             sanity_check_sums[atomical_id] = 0
@@ -1634,6 +1762,61 @@ class BlockProcessor:
                     self.put_or_delete_state_updates(operations_found_at_inputs, atomical_id_of_first_ft, tx_num, tx_hash, output_idx_le, height, 1, False)
         return cleanly_assigned 
 
+    def color_ft_atomicals_regular_swap(self, atomicals_spent_at_inputs, tx_hash, tx, tx_num, operations_found_at_inputs, atomical_ids_touched, height, live_run):
+        atomical_id_to_expected_outs_map = None
+        swap_def_valid, atomical_id_mapped = self.is_ft_swap_valid(tx, atomicals_spent_at_inputs, operations_found_at_inputs)
+        if swap_def_valid:
+            self.logger.info(f'color_ft_atomicals_regular_swap swap_def_valid={swap_def_valid} atomical_id_mapped={atomical_id_mapped}')
+            atomical_id_to_expected_outs_map = atomical_id_mapped
+        else:
+            atomical_id_to_expected_outs_map = calculate_outputs_to_color_for_ft_atomical_ids_v2(ft_atomicals, tx, 0)
+            self.logger.info(f'color_ft_atomicals_regular_swap swap_def_valid={swap_def_valid} atomical_id_to_expected_outs_map={atomical_id_to_expected_outs_map}')
+
+        if not atomical_id_to_expected_outs_map:
+            return None
+        sanity_check_sums = {}
+        for atomical_id, outputs_to_color in atomical_id_to_expected_outs_map.items():
+            sanity_check_sums[atomical_id] = 0
+            for expected_output_index in outputs_to_color:
+                # only perform the db updates if it is a live run
+                if live_run:
+                    self.build_put_atomicals_utxo(atomical_id, tx_hash, tx, tx_num, expected_output_index)
+                sanity_check_sums[atomical_id] += tx.outputs[expected_output_index].value
+            atomical_ids_touched.append(atomical_id)
+ 
+        # Sanity check that there can be no inflation
+        for atomical_id, ft_info in sorted(ft_atomicals.items()):
+            sum_out_value = sanity_check_sums.get(atomical_id)
+            input_value = ft_info['value']
+            if sum_out_value and sum_out_value > input_value:
+                atomical_id_compact = location_id_bytes_to_compact(atomical_id)
+                self.logger.info(f'atomical_id={atomical_id_compact} input_value={input_value} sum_out_value={sum_out_value} {hash_to_hex_str(tx_hash)}')
+                raise IndexError(f'Fatal error the output sum of outputs is greater than input sum for Atomical: atomical_id={atomical_id_compact} input_value={input_value} sum_out_value={sum_out_value} {hash_to_hex_str(tx_hash)}')
+
+        # If there was an event, then save it for the first FT only
+        if operations_found_at_inputs and operations_found_at_inputs.get('op') == 'evt' and operations_found_at_inputs.get('input_index') == 0:
+            # Only allow an event to be posted to the first FT in the list, sorted
+            sorted_ft_atomical_ids = sorted(ft_atomicals.keys())
+            if sorted_ft_atomical_ids and len(sorted_ft_atomical_ids) > 0:
+                atomical_id_of_first_ft = sorted_ft_atomical_ids[0]
+                output_idx_le = pack_le_uint32(0) # Always save to 0th location
+                location = tx_hash + output_idx_le
+                txout = tx.outputs[0]
+                scripthash = double_sha256(txout.pk_script)
+                hashX = self.coin.hashX_from_script(txout.pk_script)
+                value_sats = pack_le_uint64(txout.value)
+                # only perform the db updates if it is a live run
+                if live_run:
+                    # always store event updates because all FT tokens are not $immutable (ie: they can have events added)
+                    self.put_or_delete_state_updates(operations_found_at_inputs, atomical_id_of_first_ft, tx_num, tx_hash, output_idx_le, height, 1, False)
+        return True 
+
+    def color_ft_atomicals_regular(self, atomicals_spent_at_inputs, ft_atomicals, tx_hash, tx, tx_num, operations_found_at_inputs, atomical_ids_touched, height, live_run):
+        if height >= self.coin.ATOMICALS_ACTIVATION_HEIGHT_SWAP:
+            return self.color_ft_atomicals_regular_swap(atomicals_spent_at_inputs, tx_hash, tx, tx_num, operations_found_at_inputs, atomical_ids_touched, height, live_run)
+        else:
+            return self.color_ft_atomicals_regular_legacy(ft_atomicals, tx_hash, tx, tx_num, operations_found_at_inputs, atomical_ids_touched, height, live_run)
+
     def build_put_atomicals_utxo(self, atomical_id, tx_hash, tx, tx_num, out_idx):
         output_idx_le = pack_le_uint32(out_idx)
         location = tx_hash + output_idx_le
@@ -1646,8 +1829,27 @@ class BlockProcessor:
         tx_numb = pack_le_uint64(tx_num)[:TXNUM_LEN]
         self.put_atomicals_utxo(location, atomical_id, hashX + scripthash + value_sats + tx_numb)
     
+    # Build a map of atomical id to the type, value, and input indexes
+    # This information is used below to assess which inputs are of which type and therefore which outputs to color
+    def build_atomical_id_info_map(self, map_atomical_ids_to_info, atomicals_entry_list, txin_index):
+        for atomicals_entry in atomicals_entry_list:
+            atomical_id = atomicals_entry['atomical_id']
+            value, = unpack_le_uint64(atomicals_entry['data'][HASHX_LEN + SCRIPTHASH_LEN : HASHX_LEN + SCRIPTHASH_LEN + 8])
+            atomical_mint_info = self.get_atomicals_id_mint_info(atomical_id)
+            if not atomical_mint_info: 
+                raise IndexError(f'build_atomical_id_info_map {atomical_id.hex()} not found in mint info. IndexError.')
+            if map_atomical_ids_to_info.get(atomical_id, None) == None:
+                map_atomical_ids_to_info[atomical_id] = {
+                    'atomical_id': atomical_id,
+                    'type': atomical_mint_info['type'],
+                    'value': 0,
+                    'input_indexes': []
+                }
+            map_atomical_ids_to_info[atomical_id]['value'] += value
+            map_atomical_ids_to_info[atomical_id]['input_indexes'].append(txin_index)
+        return map_atomical_ids_to_info
+    
     def build_atomical_type_structs(self, atomicals_spent_at_inputs):
-        put_general_data = self.general_data_cache.__setitem__
         map_atomical_ids_to_info = {}
         for txin_index, atomicals_entry_list in atomicals_spent_at_inputs.items():
             # Accumulate the total input value by atomical_id
@@ -1664,28 +1866,31 @@ class BlockProcessor:
                 ft_atomicals[atomical_id] = mint_info
             else:
                 raise IndexError(f'color_atomicals_outputs: Invalid type. IndexError')
-        return nft_atomicals,ft_atomicals 
+        return nft_atomicals, ft_atomicals 
           
     # Apply the rules to color the outputs of the atomicals
     def color_atomicals_outputs(self, operations_found_at_inputs, atomicals_spent_at_inputs, tx, tx_hash, tx_num, height, is_unspendable):
-        # Get the nft atomicals versus ft atomical
-        nft_atomicals, ft_atomicals =  self.build_atomical_type_structs(atomicals_spent_at_inputs)
         atomical_ids_touched = []
+        # Identify NFT versus FTs
+        nft_atomicals, ft_atomicals =  self.build_atomical_type_structs(atomicals_spent_at_inputs)
+        
+        # Process the NFTs
         should_splat_nft_atomicals = operations_found_at_inputs and operations_found_at_inputs['op'] == 'x' and operations_found_at_inputs['input_index'] == 0
         if should_splat_nft_atomicals and len(nft_atomicals.keys()) > 0:
             self.color_nft_atomicals_splat(nft_atomicals, tx_hash, tx, tx_num, atomical_ids_touched)  
         else:
-            self.color_nft_atomicals_regular(operations_found_at_inputs, nft_atomicals, tx_hash, tx, tx_num, atomical_ids_touched, height)  
+            self.color_nft_atomicals_regular(operations_found_at_inputs, atomicals_spent_at_inputs, nft_atomicals, tx_hash, tx, tx_num, atomical_ids_touched, height)  
             
-        # Handle the FTs for the split case
+        # Process the FTs
         if len(ft_atomicals) > 0:
             should_split_ft_atomicals = operations_found_at_inputs and operations_found_at_inputs.get('op') == 'y' and operations_found_at_inputs.get('input_index') == 0 and operations_found_at_inputs.get('payload')
             if should_split_ft_atomicals:
                 if not self.color_ft_atomicals_split(ft_atomicals, tx_hash, tx, tx_num, operations_found_at_inputs, atomical_ids_touched, True):
                     self.logger.info(f'color_atomicals_outputs:color_ft_atomicals_split cleanly_assigned=False tx_hash={tx_hash}')
             else:
-                if not self.color_ft_atomicals_regular(ft_atomicals, tx_hash, tx, tx_num, operations_found_at_inputs, atomical_ids_touched, height, True):
+                if not self.color_ft_atomicals_regular(atomicals_spent_at_inputs, ft_atomicals, tx_hash, tx, tx_num, operations_found_at_inputs, atomical_ids_touched, height, True):
                     self.logger.info(f'color_atomicals_outputs:color_ft_atomicals_regular cleanly_assigned=False tx_hash={tx_hash}')
+        
         return atomical_ids_touched
 
     # Create or delete data that was found at the location
@@ -1699,6 +1904,37 @@ class BlockProcessor:
             put_general_data = self.general_data_cache.__setitem__
             put_general_data(the_key, operations_found_at_inputs['payload_bytes'])
         return True
+
+    def create_or_delete_swap_location(self, tx_hash, tx, Delete=False):
+        if len(tx.outputs) < 2:
+            return False 
+        txout = tx.outputs[1]
+        is_swap_output = is_op_return_swap_marker_atomical_id(txout.pk_script)
+        if not is_swap_output or not is_swap_output.get('o') or not is_swap_output.get('v'):
+            return False
+
+        # If it has an 'id' parameter make sure it is a valid atomical id
+        if is_swap_output.get('id') and not is_atomical_id_long_form_bytes(is_swap_output.get('id')):
+            return False
+
+        the_key = b'swp' + tx_hash + pack_le_uint32(0) + is_swap_output.get('o')
+
+        if Delete:
+            self.delete_general_data(the_key)
+        else: 
+            put_general_data = self.general_data_cache.__setitem__
+            put_general_data(the_key, dumps(is_swap_output))
+        return True
+    
+    def get_swap_location(self, tx_hash, tx_idx, pk_script):
+        idx_packed = pack_le_uint32(tx_idx)
+        return self.get_general_data_with_cache(b'swp' + tx_hash + idx_packed + pk_script)
+    
+    def get_swap_location_decoded(self, tx_hash, tx_idx, pk_script):
+        swap_location = self.get_swap_location(tx_hash, tx_idx, pk_script)
+        if not swap_location:
+            return False 
+        return loads(swap_location)
 
     # create or delete the proof of work records
     def create_or_delete_pow_records(self, tx_hash, tx_num, height, operations_found_at_inputs, Delete=False):
@@ -2710,6 +2946,7 @@ class BlockProcessor:
                     append_hashX(double_sha256(created_atomical_id))
                     self.logger.info(f'advance_txs: create_or_delete_atomical created_atomical_id atomical_id={created_atomical_id.hex()}, tx_hash={hash_to_hex_str(tx_hash)}')
 
+
                 # Color the outputs of any transferred NFT/FT atomicals according to the rules
                 atomical_ids_transferred = self.color_atomicals_outputs(atomicals_operations_found_at_inputs, atomicals_spent_at_inputs, tx, tx_hash, tx_num, height, is_unspendable)
                 for atomical_id in atomical_ids_transferred:
@@ -2734,6 +2971,10 @@ class BlockProcessor:
           
                 # Check if there were any regular 'dat' files definitions
                 if self.create_or_delete_data_location(tx_hash, atomicals_operations_found_at_inputs):
+                    has_at_least_one_valid_atomicals_operation = True
+
+                # Check if there were any regular 'as' swap definitions
+                if self.create_or_delete_swap_location(tx_hash, tx):
                     has_at_least_one_valid_atomicals_operation = True
 
                 # Create a proof of work record if there was valid proof of work attached
@@ -2789,7 +3030,7 @@ class BlockProcessor:
             
             # Each of the elements in the expected script output map must be satisfied for it to be a valid payment
             nft_atomicals, ft_atomicals = self.build_atomical_type_structs(atomicals_spent_at_inputs)
-            atomical_id_to_output_index_map, cleanly_assigned = calculate_outputs_to_color_for_atomical_ids(ft_atomicals, tx_hash, tx)
+            atomical_id_to_output_index_map, cleanly_assigned = calculate_outputs_to_color_for_ft_atomical_ids(ft_atomicals, tx_hash, tx)
             output_idx_to_atomical_id_map = build_reverse_output_to_atomical_id_map(atomical_id_to_output_index_map)
             expected_output_keys_satisfied = {}
             for output_script_key, output_script_details in expected_payment_outputs.items():
@@ -2848,7 +3089,7 @@ class BlockProcessor:
                     self.put_pay_record(found_atomical_id_for_potential_subrealm, tx_num, payment_outpoint + not_initated_by_parent, b'spay', self.subrealmpay_data_cache)
                 return tx_hash 
         return None 
-    
+
     # Same function is used for creating and rollback. Set Delete=True for rollback operation
     def create_or_delete_dmitem_payment_output_if_valid(self, tx_hash, tx, tx_num, height, atomicals_spent_at_inputs, Delete=False):
         # Add the new UTXOs
@@ -2872,7 +3113,7 @@ class BlockProcessor:
                 return None
             # Each of the elements in the expected script output map must be satisfied for it to be a valid payment
             nft_atomicals, ft_atomicals = self.build_atomical_type_structs(atomicals_spent_at_inputs)
-            atomical_id_to_output_index_map, cleanly_assigned = calculate_outputs_to_color_for_atomical_ids(ft_atomicals, tx_hash, tx)
+            atomical_id_to_output_index_map, cleanly_assigned = calculate_outputs_to_color_for_ft_atomical_ids(ft_atomicals, tx_hash, tx)
             output_idx_to_atomical_id_map = build_reverse_output_to_atomical_id_map(atomical_id_to_output_index_map)
             expected_output_keys_satisfied = {}
             for output_script_key, output_script_details in expected_payment_outputs.items():
@@ -3208,6 +3449,9 @@ class BlockProcessor:
 
             # Check if there were any regular 'dat' files definitions to delete
             self.create_or_delete_data_location(tx_hash, operations_found_at_inputs, True)
+
+            # Check if there were any 'swp' definitions to delete
+            self.create_or_delete_swap_location(tx_hash, tx, True)
 
             # Check a proof of work record if there was valid proof of work attached to delete
             self.create_or_delete_pow_records(tx_hash, tx_num, self.height, operations_found_at_inputs, True)
