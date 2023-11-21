@@ -590,8 +590,13 @@ class BlockProcessor:
         if found_atomical_mint_info_for_potential_subrealm:
             # Found the mint information. Use the mint details to determine the parent realm id and name requested
             # Along with the price that was expected according to the mint reveal height
-            args_subrealm = found_atomical_mint_info_for_potential_subrealm['args'].get('request_subrealm')
-            request_subrealm = found_atomical_mint_info_for_potential_subrealm['$request_subrealm']
+            args = found_atomical_mint_info_for_potential_subrealm.get('args')
+            if not args:
+                return None, None, None
+            args_subrealm = args.get('request_subrealm')
+            if not args_subrealm:
+                return None, None, None
+            request_subrealm = args_subrealm.get('$request_subrealm')
             # Check that $request_subrealm was set because it will only be set if the basic validation succeeded
             # If it's not set, then the atomical subrealm mint was not valid on a basic level and must be rejected
             if not request_subrealm:
@@ -664,8 +669,13 @@ class BlockProcessor:
             return None, None, None
         # Found the mint information. Use the mint details to determine the parent realm id and name requested
         # Along with the price that was expected according to the mint reveal height
-        args_dmitem = found_atomical_mint_info_for_potential_dmitem['args'].get('request_dmitem')
-        request_dmitem = found_atomical_mint_info_for_potential_dmitem['$request_dmitem']
+        args = found_atomical_mint_info_for_potential_dmitem.get('args')
+        if not args:
+            return None, None, None
+        args_dmitem = args.get('request_dmitem')
+        if not args_dmitem:
+            return None, None, None
+        request_dmitem = args_subrealm.get('$request_dmitem')
         # Check that $request_dmitem was set because it will only be set if the basic validation succeeded
         # If it's not set, then the atomical dm item mint was not valid on a basic level and must be rejected
         if not request_dmitem:
@@ -2876,7 +2886,7 @@ class BlockProcessor:
                     self.put_pay_record(found_atomical_id_for_potential_subrealm, tx_num, payment_outpoint + not_initated_by_parent, b'spay', self.subrealmpay_data_cache)
                 return tx_hash 
         return None 
-    
+    # git add . && git fetch && git stash && git rebase origin/dmint && git stash pop && sudo systemctl restart electrumx && journalctl -f -u electrumx
     # Same function is used for creating and rollback. Set Delete=True for rollback operation
     def create_or_delete_dmitem_payment_output_if_valid(self, tx_hash, tx, tx_num, height, atomicals_spent_at_inputs, Delete=False):
         # Add the new UTXOs
