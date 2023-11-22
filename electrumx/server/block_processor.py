@@ -1607,7 +1607,7 @@ class BlockProcessor:
 
     def found_valid_payment(nft_atomical_id_to_output_idx_map, ft_atomical_id_to_outputs_map, tx, swap_def, from_start_index):
         current = from_start_index
-        for output in tx.outputs[from_start_index:]
+        for output in tx.outputs[from_start_index:]:
             if swap_def['o'] == output.pk_script and output.value >= swap_dev['v']:
                 # No specific atomical was expected as payment
                 if not swap_def.get('id'):
