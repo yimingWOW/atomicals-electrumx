@@ -2083,11 +2083,12 @@ class BlockProcessor:
         populated_entries = {}
         for dmitem_name in dmitem_names: 
             status, atomical_id, candidates = self.get_effective_dmitem(parent_container_id, dmitem_name, height)
-            populated_entries[dmitem_name] = {
-                'status': status,
-                'id': atomical_id,
-                '$id': location_id_bytes_to_compact(atomical_id)
-            }
+            if status == 'verified':
+                populated_entries[dmitem_name] = {
+                    'status': status,
+                    'id': atomical_id,
+                    '$id': location_id_bytes_to_compact(atomical_id)
+                }
         return populated_entries
 
     def get_effective_dmitem(self, parent_container_id, dmitem_name, height):
