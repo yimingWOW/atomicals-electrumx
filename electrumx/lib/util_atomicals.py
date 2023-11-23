@@ -1522,7 +1522,7 @@ def calculate_outputs_to_color_for_ft_atomical_ids_v2(ft_atomicals, tx, start_ou
         atomical_id = item['atomical_id']
         cleanly_assigned, expected_outputs = assign_expected_outputs_basic(atomical_id, item['ft_info']['value'], tx, start_output_idx)
         potential_atomical_ids_to_output_idxs_map[atomical_id] = expected_outputs
-    print(f'calculate_outputs_to_color_for_ft_atomical_ids non_clean_output_slots_finally_assignment_map {non_clean_output_slots} {ft_atomicals} potential_atomical_ids_to_output_idxs_map={potential_atomical_ids_to_output_idxs_map}')
+    # print(f'calculate_outputs_to_color_for_ft_atomical_ids non_clean_output_slots_finally_assignment_map {non_clean_output_slots} {ft_atomicals} potential_atomical_ids_to_output_idxs_map={potential_atomical_ids_to_output_idxs_map}')
     return potential_atomical_ids_to_output_idxs_map
 
 def calculate_nft_output_index(input_idx, tx, operations_found_at_inputs):
