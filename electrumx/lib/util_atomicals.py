@@ -665,7 +665,7 @@ def get_mint_info_op_factory(coin, tx, tx_hash, op_found_struct, atomicals_spent
         mint_info['subtype'] = 'decentralized'
         ticker = mint_info['args'].get('request_ticker', None)
         if not isinstance(ticker, str) or not is_valid_ticker_string(ticker):
-            print(f'DFT mint has invalid ticker {tx_hash}, {ticker}. Skipping...')
+            print(f'DFT mint has invalid ticker {hash_to_hex_str(tx_hash)}, {ticker}. Skipping...')
             return None, None 
         mint_info['$request_ticker'] = ticker
 
@@ -1431,6 +1431,9 @@ def assign_expected_outputs_basic(atomical_id, ft_value, tx, start_out_idx):
             idx_count += 1
             continue
         # For all remaining outputs attach colors as long as there is adequate remaining_value left to cover the entire output value
+        if is_unspendable_genesis(txout.pk_script) or is_unspendable_legacy(txout.pk_script):
+            idx_count += 1
+            continue
         if txout.value <= remaining_value:
             expected_output_indexes.append(out_idx)
             remaining_value -= txout.value

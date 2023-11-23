@@ -1762,7 +1762,7 @@ class BlockProcessor:
                     self.put_or_delete_state_updates(operations_found_at_inputs, atomical_id_of_first_ft, tx_num, tx_hash, output_idx_le, height, 1, False)
         return cleanly_assigned 
 
-    def color_ft_atomicals_regular_swap(self, atomicals_spent_at_inputs, tx_hash, tx, tx_num, operations_found_at_inputs, atomical_ids_touched, height, live_run):
+    def color_ft_atomicals_regular_swap(self, atomicals_spent_at_inputs, ft_atomicals, tx_hash, tx, tx_num, operations_found_at_inputs, atomical_ids_touched, height, live_run):
         atomical_id_to_expected_outs_map = None
         swap_def_valid, atomical_id_mapped = self.is_ft_swap_valid(tx, atomicals_spent_at_inputs, operations_found_at_inputs)
         if swap_def_valid:
@@ -1813,7 +1813,7 @@ class BlockProcessor:
 
     def color_ft_atomicals_regular(self, atomicals_spent_at_inputs, ft_atomicals, tx_hash, tx, tx_num, operations_found_at_inputs, atomical_ids_touched, height, live_run):
         if height >= self.coin.ATOMICALS_ACTIVATION_HEIGHT_SWAP:
-            return self.color_ft_atomicals_regular_swap(atomicals_spent_at_inputs, tx_hash, tx, tx_num, operations_found_at_inputs, atomical_ids_touched, height, live_run)
+            return self.color_ft_atomicals_regular_swap(atomicals_spent_at_inputs, ft_atomicals, tx_hash, tx, tx_num, operations_found_at_inputs, atomical_ids_touched, height, live_run)
         else:
             return self.color_ft_atomicals_regular_legacy(ft_atomicals, tx_hash, tx, tx_num, operations_found_at_inputs, atomical_ids_touched, height, live_run)
 
