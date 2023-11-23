@@ -28,7 +28,7 @@
 '''Miscellaneous atomicals utility classes and functions.'''
 
 from array import array
-from electrumx.lib.script import OpCodes, ScriptError, Script
+from electrumx.lib.script import OpCodes, ScriptError, Script, is_unspendable_legacy, is_unspendable_genesis
 from electrumx.lib.util import pack_le_uint64, unpack_le_uint16_from, unpack_le_uint64, unpack_le_uint32, unpack_le_uint32_from, pack_le_uint16, pack_le_uint32
 from electrumx.lib.hash import hash_to_hex_str, hex_str_to_hash, double_sha256
 import re
