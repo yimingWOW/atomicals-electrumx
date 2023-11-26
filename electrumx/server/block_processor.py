@@ -1635,7 +1635,7 @@ class BlockProcessor:
             input_value = ft_info['value']
             if sum_out_value and sum_out_value > input_value:
                 atomical_id_compact = location_id_bytes_to_compact(atomical_id)
-                self.logger.info(f'atomical_id={atomical_id_compact} input_value={input_value} sum_out_value={sum_out_value} {hash_to_hex_str(tx_hash)} atomical_id_to_expected_outs_map={atomical_id_to_expected_outs_map}')
+                self.logger.info(f'atomical_id={atomical_id_compact} input_value={input_value} sum_out_value={sum_out_value} {hash_to_hex_str(tx_hash)} ft_info={ft_info} atomical_id_to_expected_outs_map={atomical_id_to_expected_outs_map}')
                 raise IndexError(f'Fatal error the output sum of outputs is greater than input sum for Atomical: atomical_id={atomical_id_compact} input_value={input_value} sum_out_value={sum_out_value} {hash_to_hex_str(tx_hash)}')
 
         # If there was an event, then save it for the first FT only
