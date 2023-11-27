@@ -2640,7 +2640,7 @@ class BlockProcessor:
         return False 
 
     def is_dmint_activated(self, height): 
-        if height >= self.coin.ATOMICALS_ACTIVATION_DMINT:
+        if height >= self.coin.ATOMICALS_ACTIVATION_HEIGHT_DMINT:
             return True 
         return False 
 
