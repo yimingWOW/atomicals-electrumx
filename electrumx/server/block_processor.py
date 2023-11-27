@@ -1659,10 +1659,7 @@ class BlockProcessor:
         return cleanly_assigned 
 
     def color_ft_atomicals_regular(self, ft_atomicals, tx_hash, tx, tx_num, operations_found_at_inputs, atomical_ids_touched, height, live_run):
-        if height >= self.coin.ATOMICALS_ACTIVATION_HEIGHT_DMINT:
-            return self.color_ft_atomicals_regular_perform(ft_atomicals, tx_hash, tx, tx_num, operations_found_at_inputs, atomical_ids_touched, height, live_run, True)
-        else:
-            return self.color_ft_atomicals_regular_perform(ft_atomicals, tx_hash, tx, tx_num, operations_found_at_inputs, atomical_ids_touched, height, live_run, False)
+        return self.color_ft_atomicals_regular_perform(ft_atomicals, tx_hash, tx, tx_num, operations_found_at_inputs, atomical_ids_touched, height, live_run, self.is_dmint_activated(height))
 
     def build_put_atomicals_utxo(self, atomical_id, tx_hash, tx, tx_num, out_idx):
         output_idx_le = pack_le_uint32(out_idx)

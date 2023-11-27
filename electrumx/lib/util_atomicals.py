@@ -1419,7 +1419,7 @@ def calculate_outputs_to_color_for_ft_atomical_ids(ft_atomicals, tx_hash, tx, so
                 seen_atomical_id_map[atomical_id] = True
                 atomical_list.append({
                     'atomical_id': atomical_id,
-                    'ft_info': ft_info
+                    'ft_info': ft_atomicals[atomical_id]
                 })
     else:
         for atomical_id, ft_info in sorted(ft_atomicals.items()):
@@ -1427,8 +1427,7 @@ def calculate_outputs_to_color_for_ft_atomical_ids(ft_atomicals, tx_hash, tx, so
                 'atomical_id': atomical_id,
                 'ft_info': ft_info
             })
-            print(f'calculate_outputs_to_color_for_ft_atomical_ids found_ft_atomical_inputs atomical_id={location_id_bytes_to_compact(atomical_id)}, ft_info={ft_info} tx_hash={hash_to_hex_str(tx_hash)}')
-    
+
     next_start_out_idx = 0
     potential_atomical_ids_to_output_idxs_map = {}
     non_clean_output_slots = False
