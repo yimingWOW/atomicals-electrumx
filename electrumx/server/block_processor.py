@@ -1617,9 +1617,11 @@ class BlockProcessor:
         return cleanly_assigned
   
     def color_ft_atomicals_regular_perform(self, ft_atomicals, tx_hash, tx, tx_num, operations_found_at_inputs, atomical_ids_touched, height, live_run, sort_fifo):
+        self.logger.info(f'color_ft_atomicals_regular_perform tx_hash={hash_to_hex_str(tx_hash)} start check')
         atomical_id_to_expected_outs_map, cleanly_assigned = calculate_outputs_to_color_for_ft_atomical_ids(ft_atomicals, tx_hash, tx, sort_fifo)
         if not atomical_id_to_expected_outs_map:
             return None
+        self.logger.info(f'color_ft_atomicals_regular_perform tx_hash={hash_to_hex_str(tx_hash)} return ft_atomicals={ft_atomicals} atomical_id_to_expected_outs_map={atomical_id_to_expected_outs_map}')
         sanity_check_sums = {}
         for atomical_id, outputs_to_color in atomical_id_to_expected_outs_map.items():
             sanity_check_sums[atomical_id] = 0
@@ -1635,7 +1637,7 @@ class BlockProcessor:
             input_value = ft_info['value']
             if sum_out_value and sum_out_value > input_value:
                 atomical_id_compact = location_id_bytes_to_compact(atomical_id)
-                self.logger.info(f'atomical_id={atomical_id_compact} input_value={input_value} sum_out_value={sum_out_value} {hash_to_hex_str(tx_hash)} ft_info={ft_info} atomical_id_to_expected_outs_map={atomical_id_to_expected_outs_map}')
+                self.logger.info(f'color_ft_atomicals_regular_perform ERROR_SUM tx_hash={hash_to_hex_str(tx_hash)} atomical_id={atomical_id_compact} input_value={input_value} sum_out_value={sum_out_value} {hash_to_hex_str(tx_hash)} ft_info={ft_info} atomical_id_to_expected_outs_map={atomical_id_to_expected_outs_map}')
                 raise IndexError(f'Fatal error the output sum of outputs is greater than input sum for Atomical: atomical_id={atomical_id_compact} input_value={input_value} sum_out_value={sum_out_value} {hash_to_hex_str(tx_hash)}')
 
         # If there was an event, then save it for the first FT only
