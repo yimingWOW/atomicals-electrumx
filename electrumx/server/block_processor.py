@@ -723,7 +723,7 @@ class BlockProcessor:
             self.logger.info(f'get_expected_dmitem_payment_info: not isinstance(request_dmitem, str). request_dmitem={request_dmitem}')
             return None, None, None
         if not found_parent_mint_info.get('$container'):
-            self.logger.info(f'get_expected_dmitem_payment_info: not container. request_subrealm={request_dmitem}, parent_container_id_compact={parent_container_id_compact}')
+            self.logger.info(f'get_expected_dmitem_payment_info: not container. found_parent_mint_info={found_parent_mint_info} request_dmitem={request_dmitem}, parent_container_id_compact={parent_container_id_compact}')
             return None, None, None
         # At this point we know we have a valid parent, but because container allocation is delayed by MINT_REALM_CONTAINER_TICKER_COMMIT_REVEAL_DELAY_BLOCKS
         # ... we do not actually know if the parent was awarded the container or not until the required heights are met
