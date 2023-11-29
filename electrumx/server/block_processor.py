@@ -699,7 +699,7 @@ class BlockProcessor:
         if not is_within_acceptable_blocks_for_sub_item_payment(found_atomical_mint_info_for_potential_dmitem['commit_height'], current_height):
             # The reveal_location_height (mint/reveal height) is too old and this payment came in far too late
             # Ignore the payment therefore.
-            self.logger.info(f'get_expected_dmitem_payment_info: not is_within_acceptable_blocks_for_sub_item_payment. request_subrealm={request_subrealm}')
+            self.logger.info(f'get_expected_dmitem_payment_info: not is_within_acceptable_blocks_for_sub_item_payment. request_subrealm={request_dmitem}')
             return None, None, None
         # The parent realm id is in a compact form string to make it easier for users and developers
         # Only store the details if the pid is also set correctly
