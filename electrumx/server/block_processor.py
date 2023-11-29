@@ -553,23 +553,28 @@ class BlockProcessor:
         self.logger.info(f'get_atomicals_id_mint_info atomical_id={hash_to_hex_str(atomical_id)}')
         try:
             result = self.atomicals_id_cache[atomical_id]
-            self.logger.info(f'get_atomicals_id_mint_info result={result}')
         except KeyError:
             # Now check the mint cache (before flush to db)
             try:
                 self.logger.info(f'get_atomicals_id_mint_info general_data_cache atomical_id={atomical_id}')
                 result = unpack_mint_info(self.general_data_cache[b'mi' + atomical_id])
-                self.logger.info(f'get_atomicals_id_mint_info unpack_mint_info result={result}')
             except KeyError:
                 mint_info_dump = self.db.get_atomical_mint_info_dump(atomical_id)
-                self.logger.info(f'get_atomicals_id_mint_info mint_info_dump mint_info_dump={mint_info_dump}')
                 if not mint_info_dump:
                     return None
                 result = unpack_mint_info(mint_info_dump)
             self.atomicals_id_cache[atomical_id] = result
-        self.logger.info(f'get_atomicals_id_mint_info result returned result={result}')
         return result 
 
+    # Get the mint information and LRU cache it for fast retrieval
+    # Used for quickly getting the mint information for an atomical
+    def get_atomicals_id_mint_info_extended(self, atomical_id):
+        found_atomical = self.get_atomicals_id_mint_info(atomical_id)
+        if not found_atomical:
+            return None 
+        self.populate_extended_atomical_subtype_info(found_atomical)
+        return found_atomical 
+        
     # Get basic atomical information in a format that can be attached to utxos in an RPC call
     # Must be called for known existing atomicals or will throw an exception
     def get_atomicals_id_mint_info_basic_struct(self, atomical_id):
@@ -627,7 +632,7 @@ class BlockProcessor:
                 assert(request_parent_realm_id_compact == parent_realm_id_compact)
                 if isinstance(parent_realm_id_compact, str) and is_compact_atomical_id(parent_realm_id_compact):
                     # We have a validated potential parent id, now look it up to see if the parent is a valid atomical
-                    found_parent_mint_info = self.get_atomicals_id_mint_info(parent_realm_id)
+                    found_parent_mint_info = self.get_atomicals_id_mint_info_extended(parent_realm_id)
                     if found_parent_mint_info:
                         # We have found the parent atomical, which may or may not be a valid realm
                         # Do the basic check for $request_realm which indicates it succeeded the basic validity checks
@@ -706,7 +711,7 @@ class BlockProcessor:
             self.logger.info(f'get_expected_dmitem_payment_info: parent_container_id_compact not string or compact atomical id {found_atomical_id_for_potential_dmitem} parent_container_id_compact={parent_container_id_compact}')
             return None, None, None
         # We have a validated potential parent id, now look it up to see if the parent is a valid atomical
-        found_parent_mint_info = self.get_atomicals_id_mint_info(parent_container_id)
+        found_parent_mint_info = self.get_atomicals_id_mint_info_extended(parent_container_id)
         if not found_parent_mint_info:
             self.logger.info(f'get_expected_dmitem_payment_info: not found_parent_mint_info found_atomical_id_for_potential_dmitem={found_atomical_id_for_potential_dmitem}')
             return None, None, None
