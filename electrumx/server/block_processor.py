@@ -2927,6 +2927,8 @@ class BlockProcessor:
             if found_atomical_id_for_potential_dmitem:
                 self.logger.info(f'create_or_delete_dmitem_payment_output_if_valid: found_atomical_id_for_potential_dmitem tx_hash={hash_to_hex_str(tx_hash)}, {location_id_bytes_to_compact(found_atomical_id_for_potential_dmitem)}')
                 break
+        
+        self.logger.info(f'create_or_delete_dmitem_payment_output_if_valid loopthrough tx_hash={hash_to_hex_str(tx_hash)}found_atomical_id_for_potential_dmitem {location_id_bytes_to_compact(found_atomical_id_for_potential_dmitem)} ')
         # Payment atomical id marker was found
         if found_atomical_id_for_potential_dmitem:
             self.logger.info(f'create_or_delete_dmitem_payment_output_if_valid. tx_hash={hash_to_hex_str(tx_hash)}, found_atomical_id_for_potential_dmitem {location_id_bytes_to_compact(found_atomical_id_for_potential_dmitem)}')
