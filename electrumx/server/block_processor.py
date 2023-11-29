@@ -2852,7 +2852,7 @@ class BlockProcessor:
             if not matched_price_point:
                 self.logger.info(f'create_or_delete_subrealm_payment_output_if_valid: {hash_to_hex_str(tx_hash)} NOT MATCHED PRICE - create_or_delete_subrealm_payment_output_if_valid found_atomical_id_for_potential_subrealm {location_id_bytes_to_compact(found_atomical_id_for_potential_subrealm)}')
                 return None
-            expected_payment_outputs = matched_price_point['matched_rule']['o']
+            expected_payment_outputs = matched_price_point['matched_rule'].get('o')
             if not isinstance(expected_payment_outputs, dict) or len(expected_payment_outputs.keys()) < 1:
                 return None
             
@@ -2938,7 +2938,7 @@ class BlockProcessor:
             if not matched_price_point:
                 self.logger.info(f'create_or_delete_dmitem_payment_output_if_valid: {hash_to_hex_str(tx_hash)} NOT MATCHED PRICE - create_or_delete_dmitem_payment_output_if_valid found_atomical_id_for_potential_dmitem {location_id_bytes_to_compact(found_atomical_id_for_potential_dmitem)}')
                 return None
-            expected_payment_outputs = matched_price_point['matched_rule']['o']
+            expected_payment_outputs = matched_price_point['matched_rule'].get('o')
             if not isinstance(expected_payment_outputs, dict) or len(expected_payment_outputs.keys()) < 1:
                 return None
             # Each of the elements in the expected script output map must be satisfied for it to be a valid payment
