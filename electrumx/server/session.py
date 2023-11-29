@@ -1594,7 +1594,7 @@ class ElectrumX(SessionBase):
         # If it is a dmint container then there is no items field, instead construct it from the dmitems
         container_dmint_status = container_info.get('$container_dmint_status')
         errors = container_dmint_status.get('errors')
-        if not container_dmint_status  
+        if not container_dmint_status:
             raise RPCError(BAD_REQUEST, f'Container dmint status not exist')
         if container_dmint_status.get('status') != 'valid':
             errors = container_dmint_status.get('errors')
