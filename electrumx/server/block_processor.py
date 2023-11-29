@@ -2975,9 +2975,11 @@ class BlockProcessor:
                 output_script_hex = txout.pk_script.hex()
                 expected_output_payment_value_dict = expected_payment_outputs.get(output_script_hex, None)
                 if not expected_output_payment_value_dict or not isinstance(expected_output_payment_value_dict, dict):
+                    self.logger.info(f'create_or_delete_dmitem_payment_output_if_valid expected_output_payment_value_dict not dicttype expected_output_payment_value_dict={expected_output_payment_value_dict}')
                     continue
                 expected_output_payment_value = expected_output_payment_value_dict.get('v', None)
                 if not expected_output_payment_value or expected_output_payment_value < SUBNAME_MIN_PAYMENT_DUST_LIMIT:
+                    self.logger.info(f'create_or_delete_dmitem_payment_output_if_valid not dust value SUBNAME_MIN_PAYMENT_DUST_LIMIT expected_output_payment_value_dict={expected_output_payment_value_dict} expected_output_payment_value={expected_output_payment_value}')
                     continue 
                 if txout.value >= expected_output_payment_value:
                     self.logger.info(f'create_or_delete_dmitem_payment_output_if_valid gt_expected_output_payment_value')
@@ -2999,7 +3001,7 @@ class BlockProcessor:
             for expected_output_script, satisfied in expected_output_keys_satisfied.items():
                 if not satisfied:
                     is_all_outputs_matched = False
-                    self.logger.info(f'create_or_delete_dmitem_payment_output_if_valid is_all_outputs_matched_not_satisfied={expected_output_keys_satisfied}')
+                    self.logger.info(f'create_or_delete_dmitem_payment_output_if_valid is_all_outputs_matched_not_satisfied={expected_output_keys_satisfied} output_idx_to_atomical_id_map={output_idx_to_atomical_id_map}')
                     break
             if is_all_outputs_matched:
                 # Delete or create the record based on whether we are reorg rollback or creating new
