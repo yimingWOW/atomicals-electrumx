@@ -1664,6 +1664,50 @@ class BlockProcessor:
 
         return cleanly_assigned 
 
+    def color_ft_atomicals_split_legacy(self, ft_atomicals, tx_hash, tx, tx_num, operations_found_at_inputs, atomical_ids_touched, live_run):
+        cleanly_assigned = True
+        for atomical_id, mint_info in sorted(ft_atomicals.items()):
+            expected_output_indexes = []
+            remaining_value = mint_info['value']
+            # The FT type has the 'split' (y) method which allows us to selectively split (skip) a certain total number of token units (satoshis)
+            # before beginning to color the outputs.
+            # Essentially this makes it possible to "split" out multiple FT's located at the same input
+            # If the input at index 0 has the split operation, then it will apply for the atomical token generally across all inputs and the first output will be skipped
+            total_amount_to_skip = 0
+            # Uses the compact form of atomical id as the keys for developer convenience
+            compact_atomical_id = location_id_bytes_to_compact(atomical_id)
+            total_amount_to_skip_potential = operations_found_at_inputs.get('payload').get(compact_atomical_id)
+            # Sanity check to ensure it is a non-negative integer
+            if isinstance(total_amount_to_skip_potential, int) and total_amount_to_skip_potential >= 0:
+                total_amount_to_skip = total_amount_to_skip_potential
+            total_skipped_so_far = 0
+            for out_idx, txout in enumerate(tx.outputs): 
+                # If the first output should be skipped and we have not yet done so, then skip/ignore it
+                if total_amount_to_skip > 0 and total_skipped_so_far < total_amount_to_skip:
+                    total_skipped_so_far += txout.value 
+                    continue 
+                # For all remaining outputs attach colors as long as there is adequate remaining_value left to cover the entire output value
+                if txout.value <= remaining_value:
+                    expected_output_indexes.append(out_idx)
+                    remaining_value -= txout.value
+                    # We are done assigning all remaining values
+                    if remaining_value == 0:
+                        break
+                # Exit case when we have no more remaining_value to assign or the next output is greater than what we have in remaining_value
+                if txout.value > remaining_value or remaining_value < 0:
+                    cleanly_assigned = False # Used to indicate that all was cleanly assigned
+                    break
+            # Used to indicate that all was cleanly assigned
+            if remaining_value != 0:
+                cleanly_assigned = False
+            # For each expected output to be colored, check for state-like updates
+            for expected_output_index in expected_output_indexes:
+                # only perform the db updates if it is a live run
+                if live_run:
+                    self.build_put_atomicals_utxo(atomical_id, tx_hash, tx, tx_num, expected_output_index)
+            atomical_ids_touched.append(atomical_id)
+        return cleanly_assigned
+
     def color_ft_atomicals_regular(self, ft_atomicals, tx_hash, tx, tx_num, operations_found_at_inputs, atomical_ids_touched, height, live_run):
         return self.color_ft_atomicals_regular_perform(ft_atomicals, tx_hash, tx, tx_num, operations_found_at_inputs, atomical_ids_touched, height, live_run, self.is_dmint_activated(height))
 
@@ -1756,8 +1800,8 @@ class BlockProcessor:
                 should_split_ft_atomicals_legacy = operations_found_at_inputs and operations_found_at_inputs.get('op') == 'y' and operations_found_at_inputs.get('input_index') == 0 and operations_found_at_inputs.get('payload')
             # If a legacy split was required, then perform it below
             if should_split_ft_atomicals_legacy:
-                if not self.color_ft_atomicals_split(ft_atomicals, tx_hash, tx, tx_num, operations_found_at_inputs, atomical_ids_touched, True):
-                    self.logger.info(f'color_atomicals_outputs:color_ft_atomicals_split cleanly_assigned=False tx_hash={tx_hash}')
+                if not self.color_ft_atomicals_split_legacy(ft_atomicals, tx_hash, tx, tx_num, operations_found_at_inputs, atomical_ids_touched, True):
+                    self.logger.info(f'color_atomicals_outputs:color_ft_atomicals_split_legacy cleanly_assigned=False tx_hash={tx_hash}')
             else:
                 # Otherwise proceed with the new algorithm. The new algorithm below also detects the new version of split
                 if not self.color_ft_atomicals_regular(ft_atomicals, tx_hash, tx, tx_num, operations_found_at_inputs, atomical_ids_touched, height, True):
