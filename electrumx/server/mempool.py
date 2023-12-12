@@ -370,7 +370,7 @@ class MemPool:
                 try:
                     tx, tx_size = deserializer(raw_tx).read_tx_and_vsize()
                     try:
-                        operations_found_at_inputs = parse_protocols_operations_from_witness_array(tx, hash)
+                        operations_found_at_inputs = parse_protocols_operations_from_witness_array(tx, hash, 0, None)
                         create_or_delete_atomical_from_definition(operations_found_at_inputs, tx, hash, atomicals_updates_map)
                     except Exception as ex:
                         self.logger.error(f'skipping atomicals parsing due to error in mempool {hash_to_hex_str(hash)}: {ex}')

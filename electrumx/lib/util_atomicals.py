@@ -1083,7 +1083,7 @@ def parse_protocols_operations_from_witness_for_input(txinwitness):
     return None, None
 
 # Parses and detects the witness script array and detects the Atomicals operations
-def parse_protocols_operations_from_witness_array(tx, tx_hash):
+def parse_protocols_operations_from_witness_array(tx, tx_hash, height, coin):
     '''Detect and parse all operations of atomicals across the witness input arrays (inputs 0 and 1) from a tx'''
     if not hasattr(tx, 'witness'):
         return {}
@@ -1104,12 +1104,28 @@ def parse_protocols_operations_from_witness_array(tx, tx_hash):
             except Exception as e: 
                 print(f'parse_protocols_operations_from_witness_array found {op_name} but CBOR payload parsing failed for {tx}. Skipping tx input...{e}')
                 continue
+            
             # Also enforce that if there are meta, args, or ctx fields that they must be dicts
             # This is done to ensure that these fields are always easily parseable and do not contain unexpected data which could cause parsing problems later
             # Ensure that they are not allowed to contain bytes like objects
-            if not is_sanitized_dict_whitelist_only(decoded_object.get('meta', {})) or not is_sanitized_dict_whitelist_only(decoded_object.get('args', {})) or not is_sanitized_dict_whitelist_only(decoded_object.get('ctx', {})) or not is_sanitized_dict_whitelist_only(decoded_object.get('init', {}), True):
-                print(f'parse_protocols_operations_from_witness_array found {op_name} but decoded CBOR payload has an args, meta, ctx, or init that has not permitted data type {tx} {decoded_object}. Skipping tx input...')
-                continue  
+            if not is_sanitized_dict_whitelist_only(decoded_object.get('meta', {})):
+                print(f'parse_protocols_operations_from_witness_array found {op_name} but decoded CBOR payload that has not permitted data type in meta {hash_to_hex_str(tx_hash)} {tx} {decoded_object}. Skipping tx input...')
+                continue 
+            args = decoded_object.get('args', {})
+            allow_bytes_in_args = False 
+            if height > 0 and height >= coin.ATOMICALS_ACTIVATION_HEIGHT_POSITRON:
+                allow_bytes_in_args = True
+            if not is_sanitized_dict_whitelist_only(args, allow_bytes_in_args): 
+                # raise IndexError(f'index bandito {args} {hash_to_hex_str(tx_hash)}')
+                print(f'parse_protocols_operations_from_witness_array found {op_name} but decoded CBOR payload that has not permitted data type in args {hash_to_hex_str(tx_hash)} {tx} {decoded_object}. Skipping tx input...')
+                continue 
+            if not is_sanitized_dict_whitelist_only(decoded_object.get('ctx', {})):
+                raise
+                print(f'parse_protocols_operations_from_witness_array found {op_name} but decoded CBOR payload that has not permitted data type in ctx {hash_to_hex_str(tx_hash)} {tx} {decoded_object}. Skipping tx input...')
+                continue
+            if not is_sanitized_dict_whitelist_only(decoded_object.get('init', {}), True):
+                print(f'parse_protocols_operations_from_witness_array found {op_name} but decoded CBOR payload that has not permitted data type in init {hash_to_hex_str(tx_hash)} {tx} {decoded_object}. Skipping tx input...')
+                continue 
             # Return immediately at the first successful parse of the payload
             # It doesn't mean that it will be valid when processed, because most operations require the txin_idx=0 
             # Nonetheless we return it here and it can be checked uptstream
