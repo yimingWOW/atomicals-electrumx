@@ -1628,7 +1628,7 @@ class BlockProcessor:
 
     def color_ft_atomicals_regular_perform(self, ft_atomicals, tx_hash, tx, tx_num, operations_found_at_inputs, atomical_ids_touched, height, live_run, sort_fifo):
         self.logger.info(f'color_ft_atomicals_regular_perform tx_hash={hash_to_hex_str(tx_hash)} start check')
-        atomical_id_to_expected_outs_map, cleanly_assigned, atomicals_list_result = calculate_outputs_to_color_for_ft_atomical_ids(ft_atomicals, tx_hash, tx, sort_fifo, get_start_index_for_ft_activated(operations_found_at_inputs, height))
+        atomical_id_to_expected_outs_map, cleanly_assigned, atomicals_list_result = calculate_outputs_to_color_for_ft_atomical_ids(ft_atomicals, tx_hash, tx, sort_fifo, self.get_start_index_for_ft_activated(operations_found_at_inputs, height))
         if not atomical_id_to_expected_outs_map:
             return None
         self.logger.info(f'color_ft_atomicals_regular_perform tx_hash={hash_to_hex_str(tx_hash)} return ft_atomicals={ft_atomicals} atomical_id_to_expected_outs_map={atomical_id_to_expected_outs_map}')
@@ -2832,6 +2832,8 @@ class BlockProcessor:
                     concatenation_of_tx_hashes_with_valid_atomical_operation += tx_hash
                     self.logger.info(f'advance_txs: has_at_least_one_valid_atomicals_operation tx_hash={hash_to_hex_str(tx_hash)}')
                 
+                # put_general_data(b'th' + pack_le_uint32(height) + pack_le_uint64(tx_num) + tx_hash, current_height_atomicals_block_hash)
+
             append_hashXs(hashXs)
             update_touched(hashXs)
             tx_num += 1
