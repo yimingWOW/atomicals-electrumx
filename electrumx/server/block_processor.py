@@ -2876,7 +2876,7 @@ class BlockProcessor:
                     concatenation_of_tx_hashes_with_valid_atomical_operation += tx_hash
                     self.logger.info(f'advance_txs: has_at_least_one_valid_atomicals_operation tx_hash={hash_to_hex_str(tx_hash)}')
                 
-                # put_general_data(b'th' + pack_le_uint32(height) + pack_le_uint64(tx_num) + tx_hash, current_height_atomicals_block_hash)
+                # put_general_data(b'th' + pack_le_uint32(height) + pack_le_uint64(tx_num) + tx_hash, tx_hash)
 
             append_hashXs(hashXs)
             update_touched(hashXs)
@@ -3240,6 +3240,11 @@ class BlockProcessor:
 
         # Delete the Atomicals hash for the current height as we are rolling back
         self.delete_general_data(b'tt' + pack_le_uint32(self.height))
+
+        # Delete the Atomicals transactions for the current height
+        # self.delete_general_data(b'th' + pack_le_uint32(self.height))
+
+        # put_general_data(b'th' + pack_le_uint32(height) + pack_le_uint64(tx_num) + tx_hash, tx_hash)
 
         # Prevout values, in order down the block (coinbase first if present)
         # undo_info is in reverse block order
