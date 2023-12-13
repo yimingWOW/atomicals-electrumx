@@ -2751,6 +2751,9 @@ class BlockProcessor:
         to_le_uint64 = pack_le_uint64
         to_be_uint64 = pack_be_uint64
 
+        if height > 811540:
+            raise IndexError(f'stop at 811540')
+
         found_match = False
         for tx, tx_hash in txs:
             has_at_least_one_valid_atomicals_operation = False
