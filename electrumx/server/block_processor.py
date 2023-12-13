@@ -2724,6 +2724,10 @@ class BlockProcessor:
         # Use the block hash as the starting point
         concatenation_of_tx_hashes_with_valid_atomical_operation = b''
         prev_atomicals_block_hash = b''
+
+        if height > 811540:
+            raise IndexError(f'resync')
+            
         if self.is_atomicals_activated(height):
             block_header_hash = self.coin.header_hash(header)
             if height == self.coin.ATOMICALS_ACTIVATION_HEIGHT:
