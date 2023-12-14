@@ -611,11 +611,12 @@ class DB:
                 hashX = value[:HASHX_LEN]
                 scripthash = value[HASHX_LEN : HASHX_LEN + SCRIPTHASH_LEN]
                 value_sats = value[HASHX_LEN + SCRIPTHASH_LEN : HASHX_LEN + SCRIPTHASH_LEN + 8]
+                exponent = value[HASHX_LEN + SCRIPTHASH_LEN + 8: HASHX_LEN + SCRIPTHASH_LEN + 8 + 2]
                 tx_numb = value[-TXNUM_LEN:]  
-                batch_put(b'i' + location_key + atomical_id, hashX + scripthash + value_sats + tx_numb) 
+                batch_put(b'i' + location_key + atomical_id, hashX + scripthash + value_sats + exponent + tx_numb) 
                 # Add the active b'a' atomicals location if it was not deleted
                 if not value_with_tombstone.get('deleted', False):
-                    batch_put(b'a' + atomical_id + location_key, hashX + scripthash + value_sats + tx_numb) 
+                    batch_put(b'a' + atomical_id + location_key, hashX + scripthash + value_sats + exponent + tx_numb) 
         flush_data.atomicals_adds.clear()
  
         # Distributed mint data adds
@@ -1387,6 +1388,8 @@ class DB:
                             'index': atomical_location_idx,
                             'scripthash': hash_to_hex_str(location_scripthash),
                             'value': location_value,
+                            'exp': 0, # Use 0 exponent for now
+                            'satvalue': location_value,
                             'script': location_script.hex(),
                             'atomicals_at_location': atomicals_at_location,
                             'tx_num': tx_num_padded
@@ -1405,6 +1408,8 @@ class DB:
         return await run_in_thread(query_location)
 
     def dump(self):
+        if True:
+            return
         i_prefix = b'i'
         # Print sorted highscores print to file
         arr = []

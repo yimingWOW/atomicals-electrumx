@@ -965,7 +965,7 @@ def parse_operation_from_script(script, n):
         if atom_op == "0178":
             atom_op_decoded = 'x'  # extract - move atomical to 0'th output
         elif atom_op == "0179":
-            atom_op_decoded = 'y'  # split - 
+            atom_op_decoded = 'y'  # split - split apart fts
 
         if atom_op_decoded:
             return atom_op_decoded, parse_atomicals_data_definition_operation(script, n + one_letter_op_len)
@@ -1402,7 +1402,7 @@ def build_reverse_output_to_atomical_id_map(atomical_id_to_output_index_map):
     return reverse_mapped 
 
 # Calculate the colorings of tokens for utxos
-def calculate_outputs_to_color_for_ft_atomical_ids(ft_atomicals, tx_hash, tx, sort_by_fifo):
+def calculate_outputs_to_color_for_ft_atomical_ids(ft_atomicals, tx_hash, tx, sort_by_fifo, start_out_idx):
     num_fts = len(ft_atomicals.keys())
     if num_fts == 0:
         return None, None, None
@@ -1432,7 +1432,7 @@ def calculate_outputs_to_color_for_ft_atomical_ids(ft_atomicals, tx_hash, tx, so
                 'ft_info': ft_info
             })
 
-    next_start_out_idx = 0
+    next_start_out_idx = start_out_idx
     potential_atomical_ids_to_output_idxs_map = {}
     non_clean_output_slots = False
     for item in atomical_list:
@@ -1456,7 +1456,7 @@ def calculate_outputs_to_color_for_ft_atomical_ids(ft_atomicals, tx_hash, tx, so
         potential_atomical_ids_to_output_idxs_map = {}
         for item in atomical_list:
             atomical_id = item['atomical_id']
-            cleanly_assigned, expected_outputs = assign_expected_outputs_basic(atomical_id, item['ft_info']['value'], tx, 0)
+            cleanly_assigned, expected_outputs = assign_expected_outputs_basic(atomical_id, item['ft_info']['value'], tx, start_out_idx)
             potential_atomical_ids_to_output_idxs_map[atomical_id] = expected_outputs
         print(f'calculate_outputs_to_color_for_ft_atomical_ids non_clean_output_slots_finally_assignment_map {non_clean_output_slots} tx_hash={hash_to_hex_str(tx_hash)} {ft_atomicals} potential_atomical_ids_to_output_idxs_map={potential_atomical_ids_to_output_idxs_map}')
         return potential_atomical_ids_to_output_idxs_map, not non_clean_output_slots, atomical_list
@@ -1472,8 +1472,8 @@ def calculate_nft_output_index_legacy(input_idx, tx, operations_found_at_inputs)
     if expected_output_index >= len(tx.outputs) or is_unspendable_genesis(tx.outputs[expected_output_index].pk_script) or is_unspendable_legacy(tx.outputs[expected_output_index].pk_script):
         expected_output_index = 0
     # If this was the 'split' (y) command, then also move them to the 0th output
-    # if operations_found_at_inputs and operations_found_at_inputs.get('op') == 'y' and operations_found_at_inputs.get('input_index') == 0:
-    #    expected_output_index = 0      
+    if operations_found_at_inputs and operations_found_at_inputs.get('op') == 'y' and operations_found_at_inputs.get('input_index') == 0:
+        expected_output_index = 0      
     return expected_output_index
 
 # Get the candidate name request status for tickers, containers and realms (not subrealms though)
@@ -1729,13 +1729,23 @@ def validate_merkle_proof_dmint(expected_root_hash, item_name, possible_bitworkc
         formatted_proof = []
         for item in proof:
             if item['p']:
-                formatted_proof.append({
-                    'right': item['d']
-                })
+                if isinstance(item['d'], bytes):
+                    formatted_proof.append({
+                        'right': item['d'].hex()
+                    })
+                else:
+                    formatted_proof.append({
+                        'right': item['d']
+                    })
             else: 
-                formatted_proof.append({
-                    'left': item['d']
-                })
+                if isinstance(item['d'], bytes):
+                    formatted_proof.append({
+                        'left': item['d'].hex()
+                    })
+                else:
+                    formatted_proof.append({
+                        'left': item['d']
+                    })
         return mt.validate_proof(formatted_proof, target_hash, expected_root_hash) 
 
     # Case 1: any/any

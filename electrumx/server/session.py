@@ -1331,6 +1331,8 @@ class ElectrumX(SessionBase):
         for i in range(atomical_hash_count):
             next_db_height = db_height - i
             nextblockhash = self.db.get_atomicals_block_hash(next_db_height)
+            if not nextblockhash:
+                break
             ret['atomicals_block_hashes'][next_db_height] = nextblockhash
         return ret
 
