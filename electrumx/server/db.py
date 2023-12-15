@@ -612,13 +612,14 @@ class DB:
                 scripthash = value[HASHX_LEN : HASHX_LEN + SCRIPTHASH_LEN]
                 value_sats = value[HASHX_LEN + SCRIPTHASH_LEN : HASHX_LEN + SCRIPTHASH_LEN + 8]
                 exponent = value[HASHX_LEN + SCRIPTHASH_LEN + 8: HASHX_LEN + SCRIPTHASH_LEN + 8 + 2]
+                self.logger.info(f'batch atomicals_adds value_sats={value_sats} exponent={exponent}')
                 tx_numb = value[-TXNUM_LEN:]  
                 batch_put(b'i' + location_key + atomical_id, hashX + scripthash + value_sats + exponent + tx_numb) 
                 # Add the active b'a' atomicals location if it was not deleted
                 if not value_with_tombstone.get('deleted', False):
                     batch_put(b'a' + atomical_id + location_key, hashX + scripthash + value_sats + exponent + tx_numb) 
         flush_data.atomicals_adds.clear()
- 
+        self.logger.info(f'batch atomicals_adds ended loop')
         # Distributed mint data adds
         # Grouped by the atomical and locations. Maintains the global location of all initial mints of distributed ft tokens
         batch_put = batch.put
@@ -644,6 +645,7 @@ class DB:
         flush_data.atomicals_undo_infos.clear()
 
         if self.utxo_db.for_sync:
+            self.logger.info(f'for_sync for sync')
             block_count = flush_data.height - self.db_height
             tx_count = flush_data.tx_count - self.db_tx_count
             atomical_count = flush_data.atomical_count - self.db_atomical_count
