@@ -1149,6 +1149,7 @@ class BlockProcessor:
                 else:
                     self.put_pay_record(mint_info['id'], mint_info['reveal_location_tx_num'], mint_info['reveal_location'] + b'02', b'dmpay', self.dmpay_data_cache)
             return True
+        self.logger.info(f'create_or_delete_dmitem_entry_if_requested return false mint_info={mint_info}')
         return False
 
     # Check for the payment and parent information for a subrealm mint request
