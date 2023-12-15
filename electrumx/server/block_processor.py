@@ -2883,6 +2883,8 @@ class BlockProcessor:
                     concatenation_of_tx_hashes_with_valid_atomical_operation += tx_hash
                     self.logger.info(f'advance_txs: has_at_least_one_valid_atomicals_operation tx_hash={hash_to_hex_str(tx_hash)}')
                 
+                put_general_data(b'th' + pack_le_uint32(height) + pack_le_uint64(tx_num) + tx_hash, tx_hash)
+
             append_hashXs(hashXs)
             update_touched(hashXs)
             tx_num += 1
@@ -3367,6 +3369,9 @@ class BlockProcessor:
 
             # Check a proof of work record if there was valid proof of work attached to delete
             self.create_or_delete_pow_records(tx_hash, tx_num, self.height, operations_found_at_inputs, True)
+
+            # Blindly delete all possible atomcials operation for the txs. In future only apply it to actual atomicals operations in the block to be more efficient
+            self.delete_general_data(b'th' + pack_le_uint32(height) + pack_le_uint64(tx_num) + tx_hash, tx_hash)
 
             # Restore the inputs
             for txin in reversed(tx.inputs):
