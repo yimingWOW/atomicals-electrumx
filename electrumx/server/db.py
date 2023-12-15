@@ -1341,7 +1341,7 @@ class DB:
                 })
         return utxo_set
     
-     def get_txos(self, limit, offset):
+    def get_txos(self, limit, offset):
         txos_list = []
         atomical_active_location_key_prefix = b'i'
         for location_key, location_result_value in self.utxo_db.iterator(prefix=i_prefix):
