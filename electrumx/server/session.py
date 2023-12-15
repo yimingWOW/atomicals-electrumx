@@ -1350,11 +1350,11 @@ class ElectrumX(SessionBase):
         return {'global': await self.get_summary_info(), 'result': atomicals_num_to_id_map_reformatted }
 
     async def atomicals_get_utxo_set(self, limit, offset):
-        utxo_set_list = await self.db.get_utxo_set(limit, offset)
+        utxo_set_list = self.db.get_utxo_set(limit, offset)
         return {'global': await self.get_summary_info(), 'result': utxo_set_list }
 
     async def atomicals_get_txos(self, limit, offset):
-        txos = await self.db.get_txos(limit, offset)
+        txos = self.db.get_txos(limit, offset)
         return {'global': await self.get_summary_info(), 'result': txos }
 
     async def hashX_subscribe(self, hashX, alias):
