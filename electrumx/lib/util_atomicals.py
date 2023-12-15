@@ -1728,23 +1728,13 @@ def validate_merkle_proof_dmint(expected_root_hash, item_name, possible_bitworkc
         formatted_proof = []
         for item in proof:
             if item['p']:
-                if isinstance(item['d'], bytes):
-                    formatted_proof.append({
-                        'right': item['d'].hex()
-                    })
-                else:
-                    formatted_proof.append({
-                        'right': item['d']
-                    })
+                formatted_proof.append({
+                    'right': item['d']
+                })
             else: 
-                if isinstance(item['d'], bytes):
-                    formatted_proof.append({
-                        'left': item['d'].hex()
-                    })
-                else:
-                    formatted_proof.append({
-                        'left': item['d']
-                    })
+                formatted_proof.append({
+                    'left': item['d']
+                })
         return mt.validate_proof(formatted_proof, target_hash, expected_root_hash) 
 
     # Case 1: any/any
