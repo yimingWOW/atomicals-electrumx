@@ -563,10 +563,10 @@ def get_mint_info_op_factory(coin, tx, tx_hash, op_found_struct, atomicals_spent
     ############################################
     if op_found_struct['op'] == 'nft' and op_found_struct['input_index'] == 0:
         mint_info['type'] = 'NFT'
-        realm = mint_info['args'].get('request_realm')
-        subrealm = mint_info['args'].get('request_subrealm')
-        container = mint_info['args'].get('request_container')
-        dmitem = mint_info['args'].get('request_dmitem')
+        realm = mint_info['args'].get('request_realm') or mint_info['args'].get('rr')
+        subrealm = mint_info['args'].get('request_subrealm') or mint_info['args'].get('rs')
+        container = mint_info['args'].get('request_container') or mint_info['args'].get('rc')
+        dmitem = mint_info['args'].get('request_dmitem') or mint_info['args'].get('rd')
         # Strings evaulate to falsey when empty
         # Reject any NFT which contains an empty string for any of the requests
         if isinstance(realm, str) and realm == '':
@@ -596,7 +596,7 @@ def get_mint_info_op_factory(coin, tx, tx_hash, op_found_struct, atomicals_spent
                 return None, None
             # The parent realm id is in a compact form string to make it easier for users and developers
             # Only store the details if the pid is also set correctly
-            claim_type = mint_info['args'].get('claim_type')
+            claim_type = mint_info['args'].get('claim_type') or mint_info['args'].get('clm')
             if not isinstance(claim_type, str):
                 print(f'NFT request_subrealm claim_type is not a string {hash_to_hex_str(tx_hash)}, {claim_type}. Skipping...')
                 return None, None
@@ -604,7 +604,7 @@ def get_mint_info_op_factory(coin, tx, tx_hash, op_found_struct, atomicals_spent
                 print(f'NFT request_subrealm claim_type is direct or a rule {hash_to_hex_str(tx_hash)}, {claim_type}. Skipping...')
                 return None, None
             mint_info['$claim_type'] = claim_type
-            parent_realm_id_compact = mint_info['args'].get('parent_realm')
+            parent_realm_id_compact = mint_info['args'].get('parent_realm') or mint_info['args'].get('pr')
             if not isinstance(parent_realm_id_compact, str) or not is_compact_atomical_id(parent_realm_id_compact):
                 print(f'NFT request_subrealm parent_realm is invalid {hash_to_hex_str(tx_hash)}, {parent_realm_id_compact}. Skipping...')
                 return None, None 
@@ -618,7 +618,7 @@ def get_mint_info_op_factory(coin, tx, tx_hash, op_found_struct, atomicals_spent
                 return None, None
             # The parent container id is in a compact form string to make it easier for users and developers
             # Only store the details if the pid is also set correctly
-            parent_container_id_compact = mint_info['args'].get('parent_container')
+            parent_container_id_compact = mint_info['args'].get('parent_container') or  mint_info['args'].get('pc')
             if not isinstance(parent_container_id_compact, str) or not is_compact_atomical_id(parent_container_id_compact):
                 print(f'NFT request_dmitem parent_container is invalid {hash_to_hex_str(tx_hash)}, {parent_container_id_compact}. Skipping...')
                 return None, None 
@@ -646,7 +646,7 @@ def get_mint_info_op_factory(coin, tx, tx_hash, op_found_struct, atomicals_spent
     elif op_found_struct['op'] == 'ft' and op_found_struct['input_index'] == 0:
         mint_info['type'] = 'FT'
         mint_info['subtype'] = 'direct'
-        ticker = mint_info['args'].get('request_ticker', None)
+        ticker = mint_info['args'].get('request_ticker', None) or mint_info['args'].get('rt', None)
         if not isinstance(ticker, str) or not is_valid_ticker_string(ticker):
             print(f'FT mint has invalid ticker {tx_hash}, {ticker}. Skipping...')
             return None, None 
@@ -660,23 +660,23 @@ def get_mint_info_op_factory(coin, tx, tx_hash, op_found_struct, atomicals_spent
     elif op_found_struct['op'] == 'dft' and op_found_struct['input_index'] == 0:
         mint_info['type'] = 'FT'
         mint_info['subtype'] = 'decentralized'
-        ticker = mint_info['args'].get('request_ticker', None)
+        ticker = mint_info['args'].get('request_ticker', None) or mint_info['args'].get('rt', None)
         if not isinstance(ticker, str) or not is_valid_ticker_string(ticker):
             print(f'DFT mint has invalid ticker {hash_to_hex_str(tx_hash)}, {ticker}. Skipping...')
             return None, None 
         mint_info['$request_ticker'] = ticker
 
-        mint_height = mint_info['args'].get('mint_height', None)
+        mint_height = mint_info['args'].get('mint_height', None) or mint_info['args'].get('mh', None)
         if not isinstance(mint_height, int) or mint_height < DFT_MINT_HEIGHT_MIN or mint_height > DFT_MINT_HEIGHT_MAX:
             print(f'DFT mint has invalid mint_height {tx_hash}, {mint_height}. Skipping...')
             return None, None
         
-        mint_amount = mint_info['args'].get('mint_amount', None)
+        mint_amount = mint_info['args'].get('mint_amount', None) or mint_info['args'].get('ma', None)
         if not isinstance(mint_amount, int) or mint_amount < DFT_MINT_AMOUNT_MIN or mint_amount > DFT_MINT_AMOUNT_MAX:
             print(f'DFT mint has invalid mint_amount {tx_hash}, {mint_amount}. Skipping...')
             return None, None
         
-        max_mints = mint_info['args'].get('max_mints', None)
+        max_mints = mint_info['args'].get('max_mints', None) or mint_info['args'].get('mm', None)
         if not isinstance(max_mints, int) or max_mints < DFT_MINT_MAX_MIN_COUNT or max_mints > DFT_MINT_MAX_MAX_COUNT:
             print(f'DFT mint has invalid max_mints {tx_hash}, {max_mints}. Skipping...')
             return None, None
@@ -687,7 +687,7 @@ def get_mint_info_op_factory(coin, tx, tx_hash, op_found_struct, atomicals_spent
 
         # Check if there are POW constraints to mint this token
         # If set it requires the mint commit tx to have POW matching the mint_commit_powprefix to claim a mint
-        mint_pow_commit = mint_info['args'].get('mint_bitworkc')
+        mint_pow_commit = mint_info['args'].get('mint_bitworkc') or mint_info['args'].get('mbitwc')
         if mint_pow_commit:
             valid_commit_str, bitwork_commit_parts = is_valid_bitwork_string(mint_pow_commit)
             if valid_commit_str:
@@ -696,7 +696,7 @@ def get_mint_info_op_factory(coin, tx, tx_hash, op_found_struct, atomicals_spent
                 print(f'DFT mint has invalid mint_bitworkc. Skipping...')
                 return None, None
         # If set it requires the mint reveal tx to have POW matching the mint_reveal_powprefix to claim a mint
-        mint_pow_reveal = mint_info['args'].get('mint_bitworkr')
+        mint_pow_reveal = mint_info['args'].get('mint_bitworkr') or mint_info['args'].get('mbitwr')
         if mint_pow_reveal:
             valid_reveal_str, bitwork_reveal_parts = is_valid_bitwork_string(mint_pow_reveal)
             if valid_reveal_str:

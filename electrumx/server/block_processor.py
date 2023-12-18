@@ -85,8 +85,6 @@ TX_HASH_LEN = 32
 ATOMICAL_ID_LEN = 36
 LOCATION_ID_LEN = 36
 TX_OUTPUT_IDX_LEN = 4
-SANITY_CHECK_ATOMICAL = 'd3805673d1080bd6f527b3153dd5f8f7584731dec04b332e6285761b5cdbf171i0'
-SANITY_CHECK_ATOMICAL_MAX_SUPPLY = 2000
 
 class Prefetcher:
     '''Prefetches blocks (in the forward direction only).'''
