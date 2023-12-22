@@ -1402,6 +1402,30 @@ def build_reverse_output_to_atomical_id_map(atomical_id_to_output_index_map):
             reverse_mapped[out_idx][atomical_id] = atomical_id
     return reverse_mapped 
 
+def get_highest_exponent(atomicals_array):
+    max = 0
+    for entry in atomicals_array:
+        if max < entry['exponent']:
+            max = entry['exponent']
+    return max
+
+def get_nominal_token_value(value, exponent):
+    assert(value >= 0)
+    assert(exponent >= 0)
+    return value / (10**exponent)
+
+def get_adjusted_sats_needed_by_exponent(value, target_exponent):
+    return value * (10**exponent)
+
+def get_token_satoshi_exponent_values(ft_info):
+    accumulated_token_value = 0
+    highest_exponent = get_highest_exponent(ft_info['input_indexes'])
+    for entry in ft_info['input_indexes']: 
+        current_input_exponent = entry['exponent']
+        accumulated_token_value += get_nominal_token_value(ft_info['value'], entry['exponent'])
+    sats_needed = get_adjusted_sats_needed_by_exponent(accumulated_token_value, highest_exponent)
+    return accumulated_token_value, sats_needed, highest_exponent
+
 # Calculate the colorings of tokens for utxos
 def calculate_outputs_to_color_for_ft_atomical_ids(ft_atomicals, tx_hash, tx, sort_by_fifo):
     num_fts = len(ft_atomicals.keys())
@@ -1413,13 +1437,18 @@ def calculate_outputs_to_color_for_ft_atomical_ids(ft_atomicals, tx_hash, tx, so
         input_idx_map = {}
         for atomical_id, ft_info in ft_atomicals.items():
             for input_index_for_atomical in ft_info['input_indexes']:
-                input_idx_map[input_index_for_atomical] = input_idx_map.get(input_index_for_atomical) or []
-                input_idx_map[input_index_for_atomical].append(atomical_id)
+                txin_index = input_index_for_atomical['txin_index']
+                exponent = input_index_for_atomical['exponent']
+                input_idx_map[txin_index] = input_idx_map.get(txin_index) or []
+                input_idx_map[txin_index].append({
+                    'atomical_id': atomical_id,
+                    'exponent': exponent
+                })
         # Now for each input, we assign the atomicals, making sure to ignore the ones we've seen already
         seen_atomical_id_map = {}
         for input_idx, atomicals_array in sorted(input_idx_map.items()):
-            for atomical_id in sorted(atomicals_array):
-                if seen_atomical_id_map.get(atomical_id):
+            for atomical_id_info in sorted(atomicals_array):
+                if seen_atomical_id_map.get(atomical_id):       
                     continue 
                 seen_atomical_id_map[atomical_id] = True
                 atomical_list.append({
@@ -1438,9 +1467,9 @@ def calculate_outputs_to_color_for_ft_atomical_ids(ft_atomicals, tx_hash, tx, so
     non_clean_output_slots = False
     for item in atomical_list:
         atomical_id = item['atomical_id']
-        v = item['ft_info']['value']
-        cleanly_assigned, expected_outputs = assign_expected_outputs_basic(atomical_id, v, tx, next_start_out_idx)
-        print(f'calculate_outputs_to_color_for_ft_atomical_ids check_if_cleanly_assigned cleanly_assigned={cleanly_assigned} v={v} next_start_out_idx={next_start_out_idx} tx_hash={hash_to_hex_str(tx_hash)} atomical_id={location_id_bytes_to_compact(atomical_id)} v={v} next_start_out_idx={next_start_out_idx}')
+        token_value, expected_satoshi_value, highest_exponent = get_token_satoshi_exponent_values(item['ft_info'])
+        cleanly_assigned, expected_outputs = assign_expected_outputs_basic(atomical_id, expected_satoshi_value, tx, next_start_out_idx)
+        print(f'calculate_outputs_to_color_for_ft_atomical_ids check_if_cleanly_assigned cleanly_assigned={cleanly_assigned} expected_satoshi_value={expected_satoshi_value} next_start_out_idx={next_start_out_idx} tx_hash={hash_to_hex_str(tx_hash)} atomical_id={location_id_bytes_to_compact(atomical_id)} v={v} next_start_out_idx={next_start_out_idx}')
         if cleanly_assigned and len(expected_outputs) > 0:
             next_start_out_idx = expected_outputs[-1] + 1
             print(f'calculate_outputs_to_color_for_ft_atomical_ids check_if_cleanly_assigned_after_in_if cleanly_assigned={cleanly_assigned} tx_hash={hash_to_hex_str(tx_hash)} atomical_id={location_id_bytes_to_compact(atomical_id)} value={v} next_start_out_idx={next_start_out_idx} expected_outputs={expected_outputs}')
@@ -1457,7 +1486,8 @@ def calculate_outputs_to_color_for_ft_atomical_ids(ft_atomicals, tx_hash, tx, so
         potential_atomical_ids_to_output_idxs_map = {}
         for item in atomical_list:
             atomical_id = item['atomical_id']
-            cleanly_assigned, expected_outputs = assign_expected_outputs_basic(atomical_id, item['ft_info']['value'], tx, 0)
+            token_value, expected_satoshi_value, highest_exponent = get_token_satoshi_exponent_values(item['ft_info'])
+            cleanly_assigned, expected_outputs = assign_expected_outputs_basic(atomical_id, expected_satoshi_value, tx, 0)
             potential_atomical_ids_to_output_idxs_map[atomical_id] = expected_outputs
         print(f'calculate_outputs_to_color_for_ft_atomical_ids non_clean_output_slots_finally_assignment_map {non_clean_output_slots} tx_hash={hash_to_hex_str(tx_hash)} {ft_atomicals} potential_atomical_ids_to_output_idxs_map={potential_atomical_ids_to_output_idxs_map}')
         return potential_atomical_ids_to_output_idxs_map, not non_clean_output_slots, atomical_list

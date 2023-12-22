@@ -281,6 +281,7 @@ class BlockProcessor:
 
         self.atomicals_id_cache = pylru.lrucache(1000000)
         self.atomicals_rpc_format_cache = pylru.lrucache(100000)
+        self.atomicals_rpc_general_cache = pylru.lrucache(100000)
   
     async def run_in_thread_with_lock(self, func, *args):
         # Run in a thread to prevent blocking.  Shielded so that
@@ -1667,7 +1668,8 @@ class BlockProcessor:
             for expected_output_index in expected_output_indexes:
                 # only perform the db updates if it is a live run
                 if live_run:
-                    self.build_put_atomicals_utxo(atomical_id, tx_hash, tx, tx_num, expected_output_index)
+                    exponent = 0
+                    self.build_put_atomicals_utxo(atomical_id, tx_hash, tx, tx_num, expected_output_index, exponent)
             atomical_ids_touched.append(atomical_id)
         return cleanly_assigned
   
@@ -1683,7 +1685,8 @@ class BlockProcessor:
             for expected_output_index in outputs_to_color:
                 # only perform the db updates if it is a live run
                 if live_run:
-                    self.build_put_atomicals_utxo(atomical_id, tx_hash, tx, tx_num, expected_output_index)
+                    exponent = 0
+                    self.build_put_atomicals_utxo(atomical_id, tx_hash, tx, tx_num, expected_output_index, exponent)
                 sanity_check_sums[atomical_id] += tx.outputs[expected_output_index].value
             atomical_ids_touched.append(atomical_id)
         # Sanity check that there can be no inflation
@@ -1712,7 +1715,7 @@ class BlockProcessor:
     def color_ft_atomicals_regular(self, ft_atomicals, tx_hash, tx, tx_num, operations_found_at_inputs, atomical_ids_touched, height, live_run):
         return self.color_ft_atomicals_regular_perform(ft_atomicals, tx_hash, tx, tx_num, operations_found_at_inputs, atomical_ids_touched, height, live_run, self.is_dmint_activated(height))
 
-    def build_put_atomicals_utxo(self, atomical_id, tx_hash, tx, tx_num, out_idx):
+    def build_put_atomicals_utxo(self, atomical_id, tx_hash, tx, tx_num, out_idx, exponent):
         output_idx_le = pack_le_uint32(out_idx)
         location = tx_hash + output_idx_le
         txout = tx.outputs[out_idx]
@@ -1722,7 +1725,7 @@ class BlockProcessor:
         put_general_data = self.general_data_cache.__setitem__
         put_general_data(b'po' + location, txout.pk_script)
         tx_numb = pack_le_uint64(tx_num)[:TXNUM_LEN]
-        self.put_atomicals_utxo(location, atomical_id, hashX + scripthash + value_sats + pack_le_uint16(0) + tx_numb)
+        self.put_atomicals_utxo(location, atomical_id, hashX + scripthash + value_sats + pack_le_uint16(exponent) + tx_numb)
     
     # Build a map of atomical id to the type, value, and input indexes
     # This information is used below to assess which inputs are of which type and therefore which outputs to color
@@ -1730,6 +1733,7 @@ class BlockProcessor:
         for atomicals_entry in atomicals_entry_list:
             atomical_id = atomicals_entry['atomical_id']
             value, = unpack_le_uint64(atomicals_entry['data'][HASHX_LEN + SCRIPTHASH_LEN : HASHX_LEN + SCRIPTHASH_LEN + 8])
+            exponent, = unpack_le_uint16(atomicals_entry['data'][HASHX_LEN + SCRIPTHASH_LEN + 8: HASHX_LEN + SCRIPTHASH_LEN + 8 + 2])
             atomical_mint_info = self.get_atomicals_id_mint_info(atomical_id)
             if not atomical_mint_info: 
                 raise IndexError(f'build_atomical_id_info_map {atomical_id.hex()} not found in mint info. IndexError.')
@@ -1741,7 +1745,10 @@ class BlockProcessor:
                     'input_indexes': []
                 }
             map_atomical_ids_to_info[atomical_id]['value'] += value
-            map_atomical_ids_to_info[atomical_id]['input_indexes'].append(txin_index)
+            map_atomical_ids_to_info[atomical_id]['input_indexes'].append({
+                'txin_index': txin_index,
+                'exponent': exponent
+            })
         return map_atomical_ids_to_info
     
     # Maps all the inputs that contain NFTs
@@ -2089,8 +2096,6 @@ class BlockProcessor:
         self.populate_extended_field_summary_atomical_info(atomical_id, atomical_result)
         return atomical_result
         
-    # Get the atomical details base info CACHED wrapper
-    # todo here
     async def get_base_mint_info_rpc_format_by_atomical_id(self, atomical_id):
         atomical_result = None
         try:
@@ -2106,11 +2111,17 @@ class BlockProcessor:
 
     # Get the atomical details base info CACHED wrapper
     async def get_dft_mint_info_rpc_format_by_atomical_id(self, atomical_id):
-        # atomical_result = None
-        # try:
-        #    atomical_result = self.atomicals_rpc_format_cache[atomical_id]
-        # except KeyError:
-        atomical_result = await self.get_base_mint_info_by_atomical_id_async(atomical_id)
+        if not atomical_id:
+            return None
+
+        atomical_result = None
+        try:
+            atomical_result = self.atomicals_rpc_format_cache[atomical_id]
+        except KeyError:
+            atomical_result = await self.get_base_mint_info_by_atomical_id_async(atomical_id)
+            if atomical_result:
+                self.atomicals_rpc_format_cache[atomical_id] = atomical_result
+
         # format for the wire format
         if not atomical_result:
             return None
@@ -2118,21 +2129,25 @@ class BlockProcessor:
         if atomical_result['type'] != 'FT':
             return None 
 
-        convert_db_mint_info_to_rpc_mint_info_format(self.coin.header_hash, atomical_result)
-        # self.populate_extended_field_summary_atomical_info(atomical_id, atomical_result)
-        # self.atomicals_rpc_format_cache[atomical_id] = atomical_result
-        atomical_result['dft_info'] = {
-            'mint_count': 0
-        }
-        atomical_dft_mint_info_key = b'gi' + atomical_id
-        mint_count = 0
-        for location_key, location_result_value in self.db.utxo_db.iterator(prefix=atomical_dft_mint_info_key):
-            mint_count += 1
-        atomical_result['dft_info']['mint_count'] = mint_count
-        atomical_result['location_summary'] = {}
-        self.populate_location_info_summary(atomical_id, atomical_result['location_summary'])
-        return atomical_result 
-
+        # Try to get the dft cached info
+        try:
+            return self.atomicals_rpc_general_cache[b'dft_info' + atomical_id]
+        except KeyError: 
+            convert_db_mint_info_to_rpc_mint_info_format(self.coin.header_hash, atomical_result)
+            atomical_result['dft_info'] = {
+                'mint_count': 0
+            }
+            atomical_dft_mint_info_key = b'gi' + atomical_id
+            mint_count = 0
+            for location_key, location_result_value in self.db.utxo_db.iterator(prefix=atomical_dft_mint_info_key):
+                mint_count += 1
+            atomical_result['dft_info']['mint_count'] = mint_count
+            atomical_result['location_summary'] = {}
+            self.populate_location_info_summary(atomical_id, atomical_result['location_summary'])
+            self.atomicals_rpc_general_cache[b'dft_info' + atomical_id] = atomical_result
+        
+        return atomical_result
+       
     # Populate location information
     def populate_location_info_summary(self, atomical_id, atomical_result):
         unique_holders = {}
@@ -2149,26 +2164,33 @@ class BlockProcessor:
 
     # Get the atomical details base info CACHED wrapper
     async def get_ft_mint_info_rpc_format_by_atomical_id(self, atomical_id):
-        # atomical_result = None
-        # try:
-        #    atomical_result = self.atomicals_rpc_format_cache[atomical_id]
-        # except KeyError:
-        atomical_result = await self.get_base_mint_info_by_atomical_id_async(atomical_id)
+        if not atomical_id:
+            return None
+        atomical_result = None
+        try:
+            atomical_result = self.atomicals_rpc_format_cache[atomical_id]
+        except KeyError:
+            atomical_result = await self.get_base_mint_info_by_atomical_id_async(atomical_id)
+            if atomical_result:
+                self.atomicals_rpc_format_cache[atomical_id] = atomical_result
+
         # format for the wire format
         if not atomical_result:
             return None
-
         if atomical_result['type'] != 'FT':
             return None 
 
-        convert_db_mint_info_to_rpc_mint_info_format(self.coin.header_hash, atomical_result)
-        # self.populate_extended_field_summary_atomical_info(atomical_id, atomical_result)
-        # self.atomicals_rpc_format_cache[atomical_id] = atomical_result
-        atomical_result['ft_info'] = {
-        }
-        atomical_result['location_summary'] = {}
-        self.populate_location_info_summary(atomical_id, atomical_result['location_summary'])
-        return atomical_result 
+        try:
+            return self.atomicals_rpc_general_cache[b'ft_info' + atomical_id]
+        except KeyError: 
+            convert_db_mint_info_to_rpc_mint_info_format(self.coin.header_hash, atomical_result)
+            atomical_result['ft_info'] = {
+            }
+            atomical_result['location_summary'] = {}
+            self.populate_location_info_summary(atomical_id, atomical_result['location_summary'])
+            self.atomicals_rpc_general_cache[b'ft_info' + atomical_id] = atomical_result
+
+        return atomical_result
 
     # Get the raw stored mint info in the db
     def get_raw_mint_info_by_atomical_id(self, atomical_id):
@@ -2720,6 +2742,7 @@ class BlockProcessor:
     ) -> Sequence[bytes]:
         self.tx_hashes.append(b''.join(tx_hash for tx, tx_hash in txs))
         self.atomicals_rpc_format_cache.clear()
+        self.atomicals_rpc_general_cache.clear()
         self.atomicals_id_cache.clear()
         # Track the Atomicals hash for the block
         # First we concatenate the previous block height hash to chain them together
@@ -3243,6 +3266,7 @@ class BlockProcessor:
         # In particular for $realm and $ticker values if something changed on reorg
         self.atomicals_id_cache.clear()
         self.atomicals_rpc_format_cache.clear()
+        self.atomicals_rpc_general_cache.clear()
 
         # Delete the Atomicals hash for the current height as we are rolling back
         self.delete_general_data(b'tt' + pack_le_uint32(self.height))
