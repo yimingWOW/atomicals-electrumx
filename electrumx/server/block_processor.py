@@ -2618,7 +2618,7 @@ class BlockProcessor:
             self.logger.info(f'create_or_delete_decentralized_mint_output: potential_dmt_atomical_id not found for dmt operation in {hash_to_hex_str(tx_hash)}. Attempt was made for invalid ticker mint info. Ignoring...')
             return None 
 
-        mint_info_for_ticker = self.get_atomicals_id_mint_info(potential_dmt_atomical_id, Fase)
+        mint_info_for_ticker = self.get_atomicals_id_mint_info(potential_dmt_atomical_id, False)
         if not mint_info_for_ticker:
             raise IndexError(f'create_or_delete_decentralized_mint_outputs: mint_info_for_ticker not found for expected atomical={atomical_id}')
  
