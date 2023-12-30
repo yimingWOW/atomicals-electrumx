@@ -17,6 +17,7 @@ import electrumx.lib.util as util
 def db_class(name) -> Type['Storage']:
     '''Returns a DB engine class.'''
     for db_class in util.subclasses(Storage):
+        print(db_class.__name__.lower())
         if db_class.__name__.lower() == name.lower():
             db_class.import_module()
             return db_class
@@ -165,3 +166,32 @@ class RocksDBIterator:
         if not k.startswith(self.prefix):
             raise StopIteration
         return k, v
+
+
+# how to start a local redis:
+# docker run --restart=always -p 6379:6379 --name myredis -d redis:7.0.12 --requirepass your_passward
+class RedisDB(Storage):
+    '''RedisDB database engine.'''
+
+    @classmethod
+    def import_module(cls):
+        import redis
+        cls.module = redis
+
+    def open(self, name, create):
+        self.db = self.module.Redis(host='localhost', port=6379, decode_responses=True,password='your_passward')  
+        self.get = self.db.get
+        self.put = self.db.set
+
+    def close(self):
+        self.db.close()
+
+    def write_batch(self):
+        return self.db
+
+    def iterator(self, prefix=b'', reverse=False):
+        pairs = []
+        cursor = 0
+        while True:
+            pair = self.db.scan(cursor,match=prefix+b'*')
+            pairs.extend(pair)
