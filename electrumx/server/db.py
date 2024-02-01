@@ -151,7 +151,7 @@ class DB:
         # Atomicals specific index below:
         # ------------------------------------------
         # Key: b'i' + location(tx_hash + txout_idx) + atomical_id(tx_hash + txout_idx)
-        # Value: hashX + scripthash + value_sats
+        # Value: hashX + scripthash + value_sats + tx_num
         # "map location to all the Atomicals which are located there. Permanently stored for every location even if spent."
         # ---
         # Key: b'a' + atomical_id(tx_hash + txout_idx) + location(tx_hash + txout_idx)
@@ -613,7 +613,6 @@ class DB:
                 value_sats = value[HASHX_LEN + SCRIPTHASH_LEN : HASHX_LEN + SCRIPTHASH_LEN + 8]
                 exponent = value[HASHX_LEN + SCRIPTHASH_LEN + 8: HASHX_LEN + SCRIPTHASH_LEN + 8 + 2]
                 tx_numb = value[-TXNUM_LEN:]  
-                self.logger.info(f'batch atomicals_adds value_sats={value_sats} exponent={exponent}')
                 batch_put(b'i' + location_key + atomical_id, hashX + scripthash + value_sats + exponent + tx_numb) 
                 # Add the active b'a' atomicals location if it was not deleted
                 if not value_with_tombstone.get('deleted', False):
@@ -1403,9 +1402,6 @@ class DB:
                     location_value, = unpack_le_uint64(atomical_active_location_value[HASHX_LEN + SCRIPTHASH_LEN : HASHX_LEN + SCRIPTHASH_LEN + 8])
                     
                     script = location_script.hex()
-                    # TODO
-                    # some location atomical_id might be burned
-                    # the location alue will less than 1000
                     if holder_dict.get(script, None):
                         holder_dict[script] += location_value
                     else:
@@ -1670,11 +1666,9 @@ class DB:
                 start_count += 1
                 continue 
             tx_numb = db_key[-8:]
-            atomical_id = db_value
             tx_num, = unpack_le_uint64(tx_numb)
             name_len, = unpack_le_uint16_from(db_key[-10:-8])
             db_prefix_len = len(db_prefix)
-            self.logger.info(f'db_key, {db_key} {db_prefix_len} {name_len}')
             entries.append({
                 'name': db_key[db_prefix_len : db_prefix_len + name_len].decode('latin-1'), # Extract the name portion
                 'atomical_id': db_value,

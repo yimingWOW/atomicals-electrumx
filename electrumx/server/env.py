@@ -30,7 +30,7 @@ class Env(EnvBase):
     # Peer discovery
     PD_OFF, PD_SELF, PD_ON = ('OFF', 'SELF', 'ON')
     SSL_PROTOCOLS = {'ssl', 'wss'}
-    KNOWN_PROTOCOLS = {'ssl', 'tcp', 'ws', 'wss', 'rpc'}
+    KNOWN_PROTOCOLS = {'ssl', 'tcp', 'ws', 'wss', 'rpc', 'http'}
 
     coin: Type[Coin]
 
@@ -94,7 +94,8 @@ class Env(EnvBase):
         self.session_group_by_subnet_ipv4 = self.integer('SESSION_GROUP_BY_SUBNET_IPV4', 24)
         self.session_group_by_subnet_ipv6 = self.integer('SESSION_GROUP_BY_SUBNET_IPV6', 48)
         self._check_and_fix_cost_limits()
-
+        self.enable_rate_limit = self.boolean('ENABLE_RATE_LIMIT', True)
+        
         # Services last - uses some env vars above
 
         self.services = self.services_to_run()
