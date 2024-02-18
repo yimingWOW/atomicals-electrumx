@@ -881,7 +881,6 @@ def format_name_type_candidates_to_rpc_for_subname(raw_entries, atomical_id_to_c
     for base_candidate in reformatted:
         dataset = atomical_id_to_candidate_info_map[compact_to_location_id_bytes(base_candidate['atomical_id'])]
         base_atomical_id = base_candidate['atomical_id']
-        print(f'data atomical_id_to_candidate_info_map atomicalId= {base_atomical_id}')
         base_candidate['payment'] = dataset.get('payment')
         base_candidate['payment_type'] = dataset.get('payment_type')
         base_candidate['payment_subtype'] = dataset.get('payment_subtype')
@@ -1521,7 +1520,7 @@ def is_event_operation(operations_found_at_inputs):
 # expired_revealed_late - Atomical was revealed beyond the permissible delay, therefore it is not eligible to claim the name
 # verified - Atomical has been verified to have successfully claimed the name (realm, container, or ticker). 
 # claimed_by_other - Failed to claim for current Atomical because it was claimed first by another Atomical
-def get_name_request_candidate_status(current_height, atomical_info, status, candidate_id, name_type):  
+def get_name_request_candidate_status(atomical_info, status, candidate_id, name_type):  
     MAX_BLOCKS_STR = str(MINT_REALM_CONTAINER_TICKER_COMMIT_REVEAL_DELAY_BLOCKS)
     # Check if the candidates are different or for the current atomical requested
     mint_info = atomical_info['mint_info']
@@ -1530,12 +1529,13 @@ def get_name_request_candidate_status(current_height, atomical_info, status, can
             'status': 'expired_revealed_late',
             'note': 'The maximum number of blocks between commit and reveal is ' + MAX_BLOCKS_STR + ' blocks'
         }
-    
     candidate_id_compact = None
     if candidate_id:
-        candidate_id_compact = location_id_bytes_to_compact(candidate_id) 
-    
+        candidate_id_compact = location_id_bytes_to_compact(candidate_id)
+
+    # There is already a verified candidate, find out if it's the current atomical or another one
     if status == 'verified':
+        # The verified candidate is ourselves
         if atomical_info['atomical_id'] == candidate_id:
             return {
                 'status': 'verified',
@@ -1543,13 +1543,15 @@ def get_name_request_candidate_status(current_height, atomical_info, status, can
                 'note': f'Successfully verified and claimed {name_type} for current Atomical'
             }
         else:
+            # The verified candidate is another one
             return {
                 'status': 'claimed_by_other',
                 'claimed_by_atomical_id': candidate_id_compact,
                 'note': f'Failed to claim {name_type} for current Atomical because it was claimed first by another Atomical'
             }
-    
-    if name_type != 'subrealm' and status == 'pending':
+    # If there is a pending candidate and it's not a subrealm or dmitem, then it must be a 'top level' name type
+    # What that means is we can know for sure the status and not depend on payments or anything of that sort
+    if (name_type != 'subrealm' and name_type != 'dmitem') and status == 'pending':
         if atomical_info['atomical_id'] == candidate_id:
             return {
                 'status': 'pending_candidate',
@@ -1562,107 +1564,141 @@ def get_name_request_candidate_status(current_height, atomical_info, status, can
                 'pending_claimed_by_atomical_id': candidate_id_compact,
                 'note': f'Failed to claim {name_type} for current Atomical because it was claimed first by another Atomical'
             }
-
+    # The status is different or this is a subrealm or dmitem
     return {
         'status': status,
-        'pending_candidate_atomical_id': candidate_id_compact
+        'pending_candidate_atomical_id': candidate_id_compact 
     }
 
-def get_subname_request_candidate_status(current_height, atomical_info, status, candidate_id, entity_type):  
-    MAX_BLOCKS_STR = str(MINT_REALM_CONTAINER_TICKER_COMMIT_REVEAL_DELAY_BLOCKS)
 
-    base_status = get_name_request_candidate_status(current_height, atomical_info, status, candidate_id, entity_type)
+def get_subname_request_candidate_status(current_height, atomical_info, status, candidate_id, entity_type):
+    max_blocks_str = str(MINT_REALM_CONTAINER_TICKER_COMMIT_REVEAL_DELAY_BLOCKS)
+
+    base_status = get_name_request_candidate_status(atomical_info, status, candidate_id, entity_type)
     # Return the base status if it is common also to entity_type
-    if base_status['status'] == 'expired_revealed_late' or base_status['status'] == 'verified':
+    if base_status['status'] == 'verified' or base_status['status'] == 'expired_revealed_late':
         return base_status
 
     # The following logic determines the derived status for the entity_type and atomical
     candidate_id_compact = None
     if candidate_id:
-        candidate_id_compact = location_id_bytes_to_compact(candidate_id) 
-    
-    current_candidate_atomical = None
-    # check if the current atomical required a payment and if so if it's expired
-    for candidate in atomical_info['$' + entity_type + '_candidates']:
-        if candidate['atomical_id'] != location_id_bytes_to_compact(atomical_info['atomical_id']):
-            continue 
-        current_candidate_atomical = candidate
-        break 
+        candidate_id_compact = location_id_bytes_to_compact(candidate_id)
 
+    info_id = atomical_info['atomical_id']
+    current_candidate_atomical = None
+    # check if the current atomical required a payment and if so it's expired
+    for candidate in atomical_info[f'${entity_type}_candidates']:
+        if candidate['atomical_id'] != location_id_bytes_to_compact(info_id):
+            continue
+        current_candidate_atomical = candidate
+        break
     if not current_candidate_atomical:
         return {
-            'status': 'invalid_request_fault'
+            'status': 'invalid_request_fault_current_atomical_not_in_candidate_list',
+            'note': 'The current Atomical should not have been classified as the sub-type.'
         }
 
-    print(f'current_candidate_atomical {current_candidate_atomical} atomical_info={atomical_info}')
- 
+    payment_type = current_candidate_atomical['payment_type']
     # Catch the scenario where it was not parent initiated, but there also was no valid applicable rule
-    if current_candidate_atomical['payment_type'] == 'applicable_rule' and current_candidate_atomical.get('applicable_rule') == None: 
+    if payment_type and current_candidate_atomical.get('applicable_rule') is None:
         return {
             'status': 'invalid_request_no_matched_applicable_rule'
         }
 
     if status == 'verified':
-        if atomical_info['atomical_id'] == candidate_id:
+        if info_id == candidate_id:
             return {
                 'status': 'verified',
                 'verified_atomical_id': candidate_id_compact,
-                'note': 'Successfully verified and claimed for current Atomical'
+                'note': 'Successfully verified and claimed for current Atomical.'
             }
         else:
             return {
                 'status': 'claimed_by_other',
                 'claimed_by_atomical_id': candidate_id_compact,
-                'note': 'Failed to claim for current Atomical because it was claimed first by another Atomical'
+                'note': 'Claimed first by another Atomical.'
             }
 
-    # The scenario where there is an applicable rule, but the payment was not received in time 
-    if current_candidate_atomical['payment_type'] == 'applicable_rule' and current_candidate_atomical.get('payment') == None and current_height > candidate['payment_due_no_later_than_height']:
+    if status == 'pending_previous_candidate_payment':
+        if info_id == candidate_id:
+            return {
+                'status': status,
+                'note': 'Previous candidates might get the item if they can made the payment.'
+            }
+        else:
+            return {
+                'status': 'pending_by_other',
+                'pending_by_atomical_id': candidate_id_compact,
+                'note': 'Previous candidates already paid for the item which can claim the item.'
+            }
+
+    payment = current_candidate_atomical.get('payment')
+    payment_due_no_later_than_height = current_candidate_atomical['payment_due_no_later_than_height']
+    # The scenario where there is an applicable rule, but the payment was not received in time
+    if payment_type == 'applicable_rule' and payment is None and current_height > payment_due_no_later_than_height:
         return {
             'status': 'expired_payment_not_received',
-            'note': 'A valid payment was not received before the \'payment_due_no_later_than_height\' limit'
+            'note': 'A valid payment was not received before the "payment_due_no_later_than_height" limit.'
         }
 
     # It is still less than the minimum required blocks for the reveal delay
-    if current_height < candidate['commit_height'] + MINT_REALM_CONTAINER_TICKER_COMMIT_REVEAL_DELAY_BLOCKS:
+    if current_height - current_candidate_atomical['commit_height'] > MINT_REALM_CONTAINER_TICKER_COMMIT_REVEAL_DELAY_BLOCKS:
         # But some users perhaps made a payment nonetheless, we should show them a suitable status
-        if current_candidate_atomical['payment_type'] == 'applicable_rule' and current_candidate_atomical.get('payment'):
+        if payment_type == 'applicable_rule' and payment is not None:
             return {
                 'status': 'pending_awaiting_confirmations_payment_received_prematurely',
                 'pending_candidate_atomical_id': candidate_id_compact,
-                'note': 'A payment was received, but the minimum delay of ' + MAX_BLOCKS_STR + ' blocks has not yet elapsed to declare a winner'
+                'note': f'The minimum delay of {max_blocks_str} blocks has not yet elapsed to declare a winner.'
             }
-        elif current_candidate_atomical['payment_type'] == 'applicable_rule':
+        elif payment_type == 'applicable_rule':
             return {
                 'status': 'pending_awaiting_confirmations_for_payment_window',
                 'pending_candidate_atomical_id': candidate_id_compact,
-                'note': 'Await until the \'make_payment_from_height\' block height for the payment window to be open with status \'pending_awaiting_payment\''
+                'note': 'Await until the "make_payment_from_height" block height for the payment window to be open.'
             }
-        elif current_candidate_atomical['payment_type'] == 'mint_initiated':
+        elif payment_type == 'mint_initiated':
             return {
                 'status': 'pending_awaiting_confirmations',
                 'pending_candidate_atomical_id': candidate_id_compact,
-                'note': 'Await ' + MAX_BLOCKS_STR + ' blocks has elapsed to verify'
+                'note': f'Await {max_blocks_str} blocks has elapsed to verify.'
             }
-    else: 
-        # The amount has elapsed
-        if status == 'pending_awaiting_payment' and atomical_info['atomical_id'] == candidate_id:
-            return {
-                'status': status,
-                'pending_candidate_atomical_id': candidate_id_compact,
-                'note': 'The payment must be received by block height ' + str(current_candidate_atomical['payment_due_no_later_than_height']) + ' to claim successfully'
-            }
-        elif status == 'pending_awaiting_payment':
-            return {
-                'status': status,
-                'pending_candidate_atomical_id': candidate_id_compact,
-                'note': 'Another Atomical is the leading candidate and they have until block height ' + str(current_candidate_atomical['payment_due_no_later_than_height']) + ' to claim successfully.'
-            }
-        
+    elif status == 'pending_awaiting_payment':  # The amount has elapsed
+        block = str(payment_due_no_later_than_height)
+        if info_id == candidate_id:
+            note = f'The payment must be received before block height {block} to claim successfully.'
+        else:
+            note = (f'Candidates ranked before you are leading for claiming before block height {block}. '
+                    f'It is recommended to pay to claim if they have not done so already.')
+        return {
+            'status': status,
+            'pending_candidate_atomical_id': candidate_id_compact,
+            'note': note
+        }
     return {
         'status': status,
         'pending_candidate_atomical_id': candidate_id_compact
     }
+
+
+def get_next_bitwork_full_str(bitwork_vec, current_prefix_len):
+    base_bitwork_padded = bitwork_vec.ljust(32, '0') 
+    if current_prefix_len >= 31:
+        return base_bitwork_padded
+    return base_bitwork_padded[:current_prefix_len + 1]
+
+# Whether txid is valid for the current and next bitwork
+def is_txid_valid_for_perpetual_bitwork(txid, bitwork_vec, actual_mints, max_mints, target_increment, starting_target, allow_higher):
+    expected_minimum_bitwork = calculate_expected_bitwork(bitwork_vec, actual_mints, max_mints, target_increment, starting_target)
+    if is_mint_pow_valid(txid, expected_minimum_bitwork):
+        return True, expected_minimum_bitwork
+    # If we allow the next bitwork also to be accepted
+    if allow_higher:
+        bitwork_str, parts = is_valid_bitwork_string(expected_minimum_bitwork)
+        prefix = parts['prefix']
+        next_full_bitwork_prefix = get_next_bitwork_full_str(bitwork_vec, len(prefix))
+        if is_mint_pow_valid(txid, next_full_bitwork_prefix):
+            return True, next_full_bitwork_prefix
+    return False, None 
 
 def calculate_expected_bitwork(bitwork_vec, actual_mints, max_mints, target_increment, starting_target):
     if starting_target < 64 or starting_target > 256:
@@ -1675,7 +1711,6 @@ def calculate_expected_bitwork(bitwork_vec, actual_mints, max_mints, target_incr
     current_target = starting_target + (target_steps * target_increment)
     return derive_bitwork_prefix_from_target(bitwork_vec, current_target)
 
-# Derive a bitwork string based on purely using an increment difficulty factor
 def derive_bitwork_prefix_from_target(base_bitwork_prefix, target):
     if target < 16:
         raise Exception(f'increments must be at least 16. Provided: {target}')
@@ -1683,8 +1718,9 @@ def derive_bitwork_prefix_from_target(base_bitwork_prefix, target):
     multiples = target / 16
     full_amount = int(math.floor(multiples))
     modulo = target % 16
-
-    bitwork_prefix = base_bitwork_padded[:full_amount]
+    bitwork_prefix = base_bitwork_padded
+    if full_amount < 32:
+        bitwork_prefix = base_bitwork_padded[:full_amount]
     if modulo > 0:
         return bitwork_prefix + '.' + str(modulo)
     return bitwork_prefix
