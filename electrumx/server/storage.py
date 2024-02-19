@@ -179,7 +179,7 @@ class RedisDB(Storage):
         cls.module = redis
 
     def open(self, name, create):
-        self.db = self.module.Redis(host='localhost', port=6379, decode_responses=True,password='your_passward')  
+        self.db = self.module.Redis(host='localhost', port=6379, decode_responses=True,password='ningzaichun')  
         self.get = self.db.get
         self.put = self.db.set
 
@@ -190,8 +190,11 @@ class RedisDB(Storage):
         return self.db
 
     def iterator(self, prefix=b'', reverse=False):
+        cursor, keys = self.db.scan(match=prefix+b'*')
+        data = self.db.mget(keys)
         pairs = []
-        cursor = 0
-        while True:
-            pair = self.db.scan(cursor,match=prefix+b'*')
-            pairs.extend(pair)
+        for key in keys:
+            pairs.extend((key,self.db.get(key)))
+        if reverse:
+            pairs.reverse()
+        return pairs
