@@ -1161,7 +1161,7 @@ class HttpHandler(object):
         branch, tx_pos, cost = await self.session_mgr.merkle_branch_for_tx_hash(
             height, tx_hash)    
         params = await self.format_params(request)
-        return await self.txhash_atomicals(tx_hash, tx_pos, Verbose)
+        return await self.txhash_atomicals(tx_hash, tx_pos, height, Verbose)
     
 
     # verified

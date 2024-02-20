@@ -1536,7 +1536,7 @@ class ElectrumX(SessionBase):
         height = non_negative_integer(height)
         # branch, tx_pos, cost = await self.session_mgr.merkle_branch_for_tx_hash(
         #     height, tx_hash)    
-        return await self.txhash_atomicals(tx_hash, 0, Verbose)
+        return await self.txhash_atomicals(tx_hash, 0, height, Verbose)
 
     async def atomicals_list(self, offset, limit, asc):
         '''Return the list of atomicals order by reverse atomical number'''
@@ -2349,7 +2349,7 @@ class ElectrumX(SessionBase):
         
         return return_struct 
 
-    async def txhash_atomicals(self, tx_hash, tx_pos, Verbose=False):
+    async def txhash_atomicals(self, tx_hash, tx_pos, height, Verbose=False):
         # Comment out the utxos for now and add it in later
         # utxos.extend(await self.mempool.unordered_UTXOs(hashX))
         print(f'UTXO tx_hash: {tx_hash}')
@@ -2369,7 +2369,7 @@ class ElectrumX(SessionBase):
             returned_utxos.append({'txid': hash_to_hex_str(tx_hash),
             'index': tx_pos,
             'vout': tx_pos,
-            'height': 0,
+            'height': height,
             'value': 0,
             'atomicals': atomicals_basic_infos})
 
