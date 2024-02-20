@@ -2347,6 +2347,115 @@ class ElectrumX(SessionBase):
         
         return return_struct 
 
+    async def txhash_atomicals(self, tx_hash, tx_pos, Verbose=False):
+        # Comment out the utxos for now and add it in later
+        # utxos.extend(await self.mempool.unordered_UTXOs(hashX))
+        returned_utxos = []
+        atomicals_id_map = {}
+        atomicals = self.db.get_atomicals_by_utxo(self.db.UTXO(0, tx_pos, tx_hash, 0, 0), True)
+        atomicals_basic_infos = []
+        for atomical_id in atomicals:
+            # This call is efficient in that it's cached underneath
+            # For now we only show the atomical id because it can always be fetched separately and it will be more efficient
+            atomical_basic_info = await self.session_mgr.bp.get_base_mint_info_rpc_format_by_atomical_id(atomical_id) 
+            atomical_id_compact = location_id_bytes_to_compact(atomical_id)
+            atomicals_id_map[atomical_id_compact] = atomical_basic_info
+            atomicals_basic_infos.append(atomical_id_compact)
+        if Verbose or len(atomicals) > 0:
+            returned_utxos.append({'txid': hash_to_hex_str(tx_hash),
+            'index': tx_pos,
+            'vout': tx_pos,
+            'height': 0,
+            'value': 0,
+            'atomicals': atomicals_basic_infos})
+
+        # Aggregate balances
+        return_struct = {
+            'global': await self.get_summary_info(),
+            'atomicals': {},
+            'utxos': returned_utxos
+        }
+
+        for returned_utxo in returned_utxos:
+            for atomical_id_entry_compact in returned_utxo['atomicals']:
+                atomical_id_basic_info = atomicals_id_map[atomical_id_entry_compact]
+                atomical_id_ref = atomical_id_basic_info['atomical_id']
+                if return_struct['atomicals'].get(atomical_id_ref) == None:
+                    return_struct['atomicals'][atomical_id_ref] = {
+                        'atomical_id': atomical_id_ref,
+                        'atomical_number': atomical_id_basic_info['atomical_number'],
+                        'type': atomical_id_basic_info['type'],
+                        'confirmed': 0,
+                        # 'subtype': atomical_id_basic_info.get('subtype'),
+                        'data': atomical_id_basic_info
+                    }
+                    if atomical_id_basic_info.get('$realm'):
+                        return_struct['atomicals'][atomical_id_ref]['subtype'] = atomical_id_basic_info.get('subtype')
+                        return_struct['atomicals'][atomical_id_ref]['request_realm_status'] = atomical_id_basic_info.get('$request_realm_status')
+                        return_struct['atomicals'][atomical_id_ref]['request_realm'] = atomical_id_basic_info.get('$request_realm')
+                        return_struct['atomicals'][atomical_id_ref]['realm'] = atomical_id_basic_info.get('$realm')
+                        return_struct['atomicals'][atomical_id_ref]['full_realm_name'] = atomical_id_basic_info.get('$full_realm_name')
+                    elif atomical_id_basic_info.get('$subrealm'):
+                        return_struct['atomicals'][atomical_id_ref]['subtype'] = atomical_id_basic_info.get('subtype')
+                        return_struct['atomicals'][atomical_id_ref]['request_subrealm_status'] = atomical_id_basic_info.get('$request_subrealm_status')
+                        return_struct['atomicals'][atomical_id_ref]['request_subrealm'] = atomical_id_basic_info.get('$request_subrealm')
+                        return_struct['atomicals'][atomical_id_ref]['parent_realm'] = atomical_id_basic_info.get('$parent_realm')
+                        return_struct['atomicals'][atomical_id_ref]['subrealm'] = atomical_id_basic_info.get('$subrealm')
+                        return_struct['atomicals'][atomical_id_ref]['full_realm_name'] = atomical_id_basic_info.get('$full_realm_name')
+                    elif atomical_id_basic_info.get('$dmitem'):
+                        return_struct['atomicals'][atomical_id_ref]['subtype'] = atomical_id_basic_info.get('subtype')
+                        return_struct['atomicals'][atomical_id_ref]['request_dmitem_status'] = atomical_id_basic_info.get('$request_dmitem_status')
+                        return_struct['atomicals'][atomical_id_ref]['request_dmitem'] = atomical_id_basic_info.get('$request_dmitem')
+                        return_struct['atomicals'][atomical_id_ref]['parent_container'] = atomical_id_basic_info.get('$parent_container')
+                        return_struct['atomicals'][atomical_id_ref]['dmitem'] = atomical_id_basic_info.get('$dmitem')
+                    elif atomical_id_basic_info.get('$ticker'):
+                        return_struct['atomicals'][atomical_id_ref]['subtype'] = atomical_id_basic_info.get('subtype')
+                        return_struct['atomicals'][atomical_id_ref]['ticker_candidates'] = atomical_id_basic_info.get('$ticker_candidates')
+                        return_struct['atomicals'][atomical_id_ref]['request_ticker_status'] =  atomical_id_basic_info.get('$request_ticker_status')
+                        return_struct['atomicals'][atomical_id_ref]['request_ticker'] = atomical_id_basic_info.get('$request_ticker')
+                        return_struct['atomicals'][atomical_id_ref]['ticker'] = atomical_id_basic_info.get('$ticker')
+                    elif atomical_id_basic_info.get('$container'):
+                        return_struct['atomicals'][atomical_id_ref]['subtype'] = atomical_id_basic_info.get('subtype')
+                        return_struct['atomicals'][atomical_id_ref]['request_container_status'] = atomical_id_basic_info.get('$request_container_status')
+                        return_struct['atomicals'][atomical_id_ref]['container'] = atomical_id_basic_info.get('$container')
+                        return_struct['atomicals'][atomical_id_ref]['request_container'] = atomical_id_basic_info.get('$request_container')
+                    # Label them as candidates if they were candidates
+                    elif atomical_id_basic_info.get('subtype') == 'request_realm':
+                        return_struct['atomicals'][atomical_id_ref]['subtype'] = atomical_id_basic_info.get('subtype')
+                        return_struct['atomicals'][atomical_id_ref]['request_realm_status'] = atomical_id_basic_info.get('$request_realm_status')
+                        return_struct['atomicals'][atomical_id_ref]['request_realm'] = atomical_id_basic_info.get('$request_realm')
+                        return_struct['atomicals'][atomical_id_ref]['realm_candidates'] = atomical_id_basic_info.get('$realm_candidates')
+                    elif atomical_id_basic_info.get('subtype') == 'request_subrealm':
+                        return_struct['atomicals'][atomical_id_ref]['subtype'] = atomical_id_basic_info.get('subtype')
+                        return_struct['atomicals'][atomical_id_ref]['subrealm_candidates'] = atomical_id_basic_info.get('$subrealm_candidates')
+                        return_struct['atomicals'][atomical_id_ref]['request_subrealm_status'] = atomical_id_basic_info.get('$request_subrealm_status')
+                        return_struct['atomicals'][atomical_id_ref]['request_full_realm_name'] = atomical_id_basic_info.get('$request_full_realm_name')
+                        return_struct['atomicals'][atomical_id_ref]['request_subrealm'] = atomical_id_basic_info.get('$request_subrealm')
+                        return_struct['atomicals'][atomical_id_ref]['parent_realm'] = atomical_id_basic_info.get('$parent_realm')
+                    elif atomical_id_basic_info.get('subtype') == 'request_dmitem':
+                        return_struct['atomicals'][atomical_id_ref]['subtype'] = atomical_id_basic_info.get('subtype')
+                        return_struct['atomicals'][atomical_id_ref]['dmitem_candidates'] = atomical_id_basic_info.get('$dmitem_candidates')
+                        return_struct['atomicals'][atomical_id_ref]['request_dmitem_status'] = atomical_id_basic_info.get('$request_dmitem_status')
+                        return_struct['atomicals'][atomical_id_ref]['request_dmitem'] = atomical_id_basic_info.get('$request_dmitem')
+                        return_struct['atomicals'][atomical_id_ref]['parent_container'] = atomical_id_basic_info.get('$parent_container')
+                    elif atomical_id_basic_info.get('subtype') == 'request_container':
+                        return_struct['atomicals'][atomical_id_ref]['subtype'] = atomical_id_basic_info.get('subtype')
+                        return_struct['atomicals'][atomical_id_ref]['container_candidates'] = atomical_id_basic_info.get('$container_candidates')
+                        return_struct['atomicals'][atomical_id_ref]['request_container_status'] = atomical_id_basic_info.get('$request_container_status')
+                        return_struct['atomicals'][atomical_id_ref]['request_container'] = atomical_id_basic_info.get('$request_container')
+                    elif atomical_id_basic_info.get('$request_ticker_status'):
+                        return_struct['atomicals'][atomical_id_ref]['subtype'] = atomical_id_basic_info.get('subtype')
+                        return_struct['atomicals'][atomical_id_ref]['ticker_candidates'] = atomical_id_basic_info.get('$ticker_candidates')
+                        return_struct['atomicals'][atomical_id_ref]['request_ticker_status'] =  atomical_id_basic_info.get('$request_ticker_status')
+                        return_struct['atomicals'][atomical_id_ref]['request_ticker'] = atomical_id_basic_info.get('$request_ticker')
+
+                if returned_utxo['height'] <= 0:
+                    return_struct['atomicals'][atomical_id_ref]['unconfirmed'] += returned_utxo['value']
+                else:
+                    return_struct['atomicals'][atomical_id_ref]['confirmed'] += returned_utxo['value']
+
+        return return_struct
+
     async def atomicals_get_tx(self, txids):
         return await self.atomical_get_tx(txids)
 
