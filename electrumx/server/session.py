@@ -1534,9 +1534,9 @@ class ElectrumX(SessionBase):
     async def atomicals_txhash_handle(self, tx_hash, height, Verbose=False):
         tx_hash = assert_tx_hash(tx_hash)
         height = non_negative_integer(height)
-        branch, tx_pos, cost = await self.session_mgr.merkle_branch_for_tx_hash(
-            height, tx_hash)    
-        return await self.txhash_atomicals(tx_hash, tx_pos, Verbose)
+        # branch, tx_pos, cost = await self.session_mgr.merkle_branch_for_tx_hash(
+        #     height, tx_hash)    
+        return await self.txhash_atomicals(tx_hash, 0, Verbose)
 
     async def atomicals_list(self, offset, limit, asc):
         '''Return the list of atomicals order by reverse atomical number'''
