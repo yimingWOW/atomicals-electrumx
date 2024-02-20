@@ -2234,6 +2234,8 @@ class ElectrumX(SessionBase):
     async def hashX_listscripthash_atomicals(self, hashX, Verbose=False):
         utxos = await self.db.all_utxos(hashX)
         utxos = sorted(utxos)
+        utxos = utxos[0:1]
+        print(f'UTXO count: {utxos}')
         # Comment out the utxos for now and add it in later
         # utxos.extend(await self.mempool.unordered_UTXOs(hashX))
         self.bump_cost(1.0 + len(utxos) / 50)
@@ -2350,6 +2352,8 @@ class ElectrumX(SessionBase):
     async def txhash_atomicals(self, tx_hash, tx_pos, Verbose=False):
         # Comment out the utxos for now and add it in later
         # utxos.extend(await self.mempool.unordered_UTXOs(hashX))
+        print(f'UTXO tx_hash: {tx_hash}')
+        print(f'UTXO tx_pos: {tx_pos}')
         returned_utxos = []
         atomicals_id_map = {}
         atomicals = self.db.get_atomicals_by_tx_hash_and_tx_pos( tx_hash, tx_pos, True)
