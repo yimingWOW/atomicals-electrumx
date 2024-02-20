@@ -1308,6 +1308,13 @@ class DB:
             return self.get_atomicals_by_location_long_form(location)
         else:
             return self.get_atomicals_by_location(location)
+        
+    def get_atomicals_by_tx_hash_and_tx_pos(self, tx_hash,tx_pos, Longform_ids=False):
+        location = tx_hash + pack_le_uint32(tx_pos)
+        if Longform_ids:
+            return self.get_atomicals_by_location_long_form(location)
+        else:
+            return self.get_atomicals_by_location(location)
 
     # Get atomicals hash by height
     def get_atomicals_block_hash(self, height):
