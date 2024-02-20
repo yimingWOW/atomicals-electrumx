@@ -2352,7 +2352,7 @@ class ElectrumX(SessionBase):
         # utxos.extend(await self.mempool.unordered_UTXOs(hashX))
         returned_utxos = []
         atomicals_id_map = {}
-        atomicals = self.db.get_atomicals_by_tx_hash_and_tx_pos(self.db.UTXO(0, tx_pos, tx_hash, 0, 0), True)
+        atomicals = self.db.get_atomicals_by_tx_hash_and_tx_pos( tx_pos, tx_hash, True)
         atomicals_basic_infos = []
         for atomical_id in atomicals:
             # This call is efficient in that it's cached underneath
