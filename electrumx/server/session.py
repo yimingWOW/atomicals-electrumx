@@ -1531,6 +1531,13 @@ class ElectrumX(SessionBase):
         hashX = scripthash_to_hashX(scripthash)
         return await self.hashX_listscripthash_atomicals(hashX, Verbose)
 
+    async def atomicals_txhash_handle(self, tx_hash, height, Verbose=False):
+        tx_hash = assert_tx_hash(tx_hash)
+        height = non_negative_integer(height)
+        branch, tx_pos, cost = await self.session_mgr.merkle_branch_for_tx_hash(
+            height, tx_hash)    
+        return await self.txhash_atomicals(tx_hash, tx_pos, Verbose)
+
     async def atomicals_list(self, offset, limit, asc):
         '''Return the list of atomicals order by reverse atomical number'''
         return await self.atomicals_list_get(offset, limit, asc)
@@ -2739,6 +2746,7 @@ class ElectrumX(SessionBase):
             'blockchain.atomicals.get_ft_balances_scripthash': self.atomicals_get_ft_balances,
             'blockchain.atomicals.get_nft_balances_scripthash': self.atomicals_get_nft_balances,
             'blockchain.atomicals.listscripthash': self.atomicals_listscripthash,
+            'blockchain.atomicals.txhash': self.atomicals_txhash_handle,
             'blockchain.atomicals.list': self.atomicals_list,
             'blockchain.atomicals.get_numbers': self.atomicals_num_to_id,
             'blockchain.atomicals.get_block_txs': self.atomicals_block_txs,

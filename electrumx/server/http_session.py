@@ -1158,14 +1158,9 @@ class HttpHandler(object):
 
         tx_hash = assert_tx_hash(tx_hash)
         height = non_negative_integer(height)
-
         branch, tx_pos, cost = await self.session_mgr.merkle_branch_for_tx_hash(
-            height, tx_hash)
-
-        res = {"block_height": height, "merkle": branch, "pos": tx_pos}
-    
+            height, tx_hash)    
         params = await self.format_params(request)
-
         return await self.txhash_atomicals(tx_hash, tx_pos, Verbose)
     
 
