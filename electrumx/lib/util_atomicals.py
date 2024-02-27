@@ -1185,10 +1185,7 @@ def parse_protocols_operations_from_witness_for_input(txinwitness):
                             print("parse_protocols_operations_from_witness_array--------------------------------------------")
                             print("txinwitness script:",script," script.hex:",script.hex()," len(script):",len(script))
                             operation_type, payload = parse_operation_from_script(script, n + 5)
-                            python_payload_int = [ord(char) for char in payload]
-                            print("operation_type:",operation_type," payload",payload," python_payload_int",python_payload_int)
-
-
+                            print("operation_type:",operation_type," payload",payload)
                             if operation_type != None:
                                 return operation_type, payload
                             break
@@ -1213,7 +1210,7 @@ def parse_protocols_operations_from_witness_array(tx, tx_hash, allow_args_bytes)
         if payload: 
             # Ensure that the payload is cbor encoded dictionary or empty
             try:
-                decoded_object = loads(payload)
+                decoded_object = loads(payload)                
                 if not isinstance(decoded_object, dict):
                     print(f'parse_protocols_operations_from_witness_array found {op_name} but decoded CBOR payload is not a dict for {tx}. Skipping tx input...')
                     continue
@@ -1227,6 +1224,8 @@ def parse_protocols_operations_from_witness_array(tx, tx_hash, allow_args_bytes)
                 print(f'parse_protocols_operations_from_witness_array found {op_name} but decoded CBOR payload has an args, meta, ctx, or init that has not permitted data type {tx} {decoded_object}. Skipping tx input...')
                 continue  
 
+            print("txinwitness decoded_object:",decoded_object)
+            print("txinwitness decoded_object:",decoded_object)
             # Return immediately at the first successful parse of the payload
             # It doesn't mean that it will be valid when processed, because most operations require the txin_idx=0 
             # Nonetheless we return it here and it can be checked uptstream
