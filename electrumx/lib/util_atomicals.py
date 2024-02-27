@@ -1223,9 +1223,6 @@ def parse_protocols_operations_from_witness_array(tx, tx_hash, allow_args_bytes)
             if not is_sanitized_dict_whitelist_only(decoded_object.get('meta', {})) or not is_sanitized_dict_whitelist_only(decoded_object.get('args', {}), allow_args_bytes) or not is_sanitized_dict_whitelist_only(decoded_object.get('ctx', {})) or not is_sanitized_dict_whitelist_only(decoded_object.get('init', {}), True):
                 print(f'parse_protocols_operations_from_witness_array found {op_name} but decoded CBOR payload has an args, meta, ctx, or init that has not permitted data type {tx} {decoded_object}. Skipping tx input...')
                 continue  
-
-            print("txinwitness decoded_object:",decoded_object)
-            print("txinwitness decoded_object:",decoded_object)
             # Return immediately at the first successful parse of the payload
             # It doesn't mean that it will be valid when processed, because most operations require the txin_idx=0 
             # Nonetheless we return it here and it can be checked uptstream

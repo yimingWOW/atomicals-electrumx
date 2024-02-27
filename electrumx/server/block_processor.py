@@ -2807,6 +2807,9 @@ class BlockProcessor:
                     self.logger.debug(f'advance_txs: atomicals_operations_found_at_inputs operation_found={operation_found}, operation_input_index={operation_input_index}, size_payload={size_payload}, tx_hash={hash_to_hex_str(tx_hash)}, commit_txid={hash_to_hex_str(commit_txid)}, commit_index={commit_index}, reveal_location_txid={hash_to_hex_str(reveal_location_txid)}, reveal_location_index={reveal_location_index}')
                 
                 # Color the outputs of any transferred NFT/FT atomicals according to the rules
+                print("-----------------------------------------------------------------")
+                print(len(atomicals_operations_found_at_inputs))
+                print(len(atomicals_spent_at_inputs))
                 blueprint_builder = self.color_atomicals_outputs(atomicals_operations_found_at_inputs, atomicals_spent_at_inputs, tx, tx_hash, tx_num, height)
                 for atomical_id in blueprint_builder.get_atomical_ids_spent():
                     has_at_least_one_valid_atomicals_operation = True
