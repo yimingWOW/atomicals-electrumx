@@ -1182,6 +1182,7 @@ def parse_protocols_operations_from_witness_for_input(txinwitness):
                         if ATOMICALS_ENVELOPE_MARKER_BYTES == script[n : n + 5].hex():
                             found_operation_definition = True
                             # Parse to ensure it is in the right format
+                            print("parse_protocols_operations_from_witness_array--------------------------------------------")
                             print("txinwitness script:",script," script.hex:",script.hex()," len(script):",len(script))
                             operation_type, payload = parse_operation_from_script(script, n + 5)
                             print("operation_type:",operation_type," payload",payload)
@@ -1203,10 +1204,6 @@ def parse_protocols_operations_from_witness_array(tx, tx_hash, allow_args_bytes)
     txin_idx = 0
     for txinwitness in tx.witness:
         # All inputs are parsed but further upstream most operations will only function if placed in the 0'th input
-        print("parse_protocols_operations_from_witness_array--------------------------------------------")
-        tx_hash_string = tx_hash.hex()
-        print(" tx_hash:",tx_hash," tx_hash_string:",tx_hash_string," txin_idx:",txin_idx," txinwitness:",txinwitness)
-
         op_name, payload = parse_protocols_operations_from_witness_for_input(txinwitness)
         if not op_name:
             continue 
