@@ -1185,7 +1185,7 @@ def parse_protocols_operations_from_witness_for_input(txinwitness):
                             print("parse_protocols_operations_from_witness_array--------------------------------------------")
                             print("txinwitness script:",script," script.hex:",script.hex()," len(script):",len(script))
                             operation_type, payload = parse_operation_from_script(script, n + 5)
-                            print("operation_type:",operation_type," payload",payload)
+                            print("operation_type:",operation_type," payload",payload.hex())
 
                             if operation_type != None:
                                 return operation_type, payload
