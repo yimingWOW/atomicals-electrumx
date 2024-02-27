@@ -1163,6 +1163,9 @@ def parse_protocols_operations_from_witness_for_input(txinwitness):
     '''Detect and parse all operations across the witness input arrays from a tx'''
     atomical_operation_type_map = {}
     for script in txinwitness:
+        print("script")
+        print(len(script))
+        print(script)
         n = 0
         script_entry_len = len(script)
         if script_entry_len < 39 or script[0] != 0x20:
@@ -1200,6 +1203,10 @@ def parse_protocols_operations_from_witness_array(tx, tx_hash, allow_args_bytes)
     txin_idx = 0
     for txinwitness in tx.witness:
         # All inputs are parsed but further upstream most operations will only function if placed in the 0'th input
+        print("parse_protocols_operations_from_witness_array--------------------------------------------")
+        print(tx_hash)
+        print(txin_idx)
+        print(txinwitness)
         op_name, payload = parse_protocols_operations_from_witness_for_input(txinwitness)
         if not op_name:
             continue 

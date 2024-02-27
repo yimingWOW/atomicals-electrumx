@@ -87,8 +87,6 @@ class LevelDB(Storage):
         self.get = self.db.get
         self.put = self.db.put
         self.iterator = self.db.iterator
-        self.write_batch = partial(self.db.write_batch, transaction=True,
-                                   sync=True)
 
 
 class RocksDB(Storage):
@@ -186,8 +184,17 @@ class RedisDB(Storage):
     def close(self):
         self.db.close()
 
+    def get(self, key):
+        return self.db.get(key)
+
+    def put(self, key, value):
+        self.db.set(key,value)
+
+    def delete(self, key):
+        self.db.delete(key)
+
     def write_batch(self):
-        return self.db
+        return self
 
     def iterator(self, prefix=b'', reverse=False):
         cursor, keys = self.db.scan(match=prefix+b'*')
