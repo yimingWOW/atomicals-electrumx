@@ -1202,8 +1202,7 @@ def parse_protocols_operations_from_witness_array(tx, tx_hash, allow_args_bytes)
     for txinwitness in tx.witness:
         # All inputs are parsed but further upstream most operations will only function if placed in the 0'th input
         print("parse_protocols_operations_from_witness_array--------------------------------------------")
-        tx_hash_hex = tx_hash.hex()
-        tx_hash_string = bytes.fromhex(tx_hash_hex).decode('utf-8')
+        tx_hash_string = tx_hash.hex()
         print(" tx_hash:",tx_hash," tx_hash_string:",tx_hash_string," txin_idx:",txin_idx," txinwitness:",txinwitness)
 
         op_name, payload = parse_protocols_operations_from_witness_for_input(txinwitness)
