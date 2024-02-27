@@ -2808,7 +2808,6 @@ class BlockProcessor:
                 
                 # Color the outputs of any transferred NFT/FT atomicals according to the rules
                 print("-----------------------------------------------------------------")
-                print(len(atomicals_operations_found_at_inputs))
                 print(len(atomicals_spent_at_inputs))
                 blueprint_builder = self.color_atomicals_outputs(atomicals_operations_found_at_inputs, atomicals_spent_at_inputs, tx, tx_hash, tx_num, height)
                 for atomical_id in blueprint_builder.get_atomical_ids_spent():
