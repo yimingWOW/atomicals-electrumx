@@ -396,7 +396,7 @@ class AtomicalsTransferBlueprintBuilder:
                 print(f"Unexpected type for atomical_info2: {type(atomical_info)}")
 
             print("----------------------------------------atomical_info:",atomical_info)
-            print("----------------------------------------atomical_info2:",output_colored_map[expected_output_index]['atomicals'][atomical_id])
+            print("----------------------------------------atomical_info2:",output_colored_map[expected_output_index]['atomicals'][atomical_id].input_summary_info)
 
       return AtomicalFtOutputBlueprintAssignmentSummary(output_colored_map, ft_coloring_summary.fts_burned, ft_coloring_summary.cleanly_assigned, first_atomical_id) 
   
