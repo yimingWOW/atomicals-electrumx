@@ -389,7 +389,8 @@ class AtomicalsTransferBlueprintBuilder:
             txout = tx.outputs[expected_output_index]
             output_colored_map[expected_output_index] = output_colored_map.get(expected_output_index) or {'atomicals': {}}
             output_colored_map[expected_output_index]['atomicals'][atomical_id] = AtomicalColoredOutputFt(atomical_info.exponent, txout.value, get_nominal_token_value(txout.value, atomical_info.exponent), atomical_info)
-      
+            print("----------------------------------------atomical_info:",atomical_info)
+
       return AtomicalFtOutputBlueprintAssignmentSummary(output_colored_map, ft_coloring_summary.fts_burned, ft_coloring_summary.cleanly_assigned, first_atomical_id) 
   
   @classmethod
