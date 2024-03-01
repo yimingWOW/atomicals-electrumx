@@ -351,7 +351,7 @@ class MemPool:
                 if not operation_found_at_inputs:
                     return 
                 op = operation_found_at_inputs['op']
-                self.logger.info(f'atomicals_op={op} txid={hash_to_hex_str(tx_hash)}') 
+                # self.logger.info(f'atomicals_op={op} txid={hash_to_hex_str(tx_hash)}') 
                 valid_create_op_type, mint_info = get_mint_info_op_factory(self.coin, tx, tx_hash, operation_found_at_inputs, None, 0, self.logger)
                 if valid_create_op_type:
                     atomical_id = mint_info['id']
