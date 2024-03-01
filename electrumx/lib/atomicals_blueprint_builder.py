@@ -391,9 +391,9 @@ class AtomicalsTransferBlueprintBuilder:
             output_colored_map[expected_output_index]['atomicals'][atomical_id] = AtomicalColoredOutputFt(atomical_info.exponent, txout.value, get_nominal_token_value(txout.value, atomical_info.exponent), atomical_info)
             
             if isinstance(atomical_info, ExpectedOutputSet):
-                print(f"Unexpected type for atomical_info1: {type(atomical_info)}")
+                print(f"Unexpected type for atomical_info: {type(atomical_info)}")
             else:
-                print(f"Unexpected type for atomical_info2: {type(atomical_info)}")
+                print(f"Unexpected type for atomical_info: {type(atomical_info)}")
 
             print("----------------------------------------atomical_info:",atomical_info)
             print("----------------------------------------atomical_info2:",output_colored_map[expected_output_index]['atomicals'][atomical_id].input_summary_info)

@@ -1161,7 +1161,6 @@ def is_op_return_dmitem_payment_marker_atomical_id(script):
 # Stops when it finds the first operation in the first input
 def parse_protocols_operations_from_witness_for_input(txinwitness):
     '''Detect and parse all operations across the witness input arrays from a tx'''
-    atomical_operation_type_map = {}
     for script in txinwitness:
         n = 0
         script_entry_len = len(script)
@@ -1175,17 +1174,17 @@ def parse_protocols_operations_from_witness_for_input(txinwitness):
             if op == 0x20 and n + 32 <= script_entry_len:
                 n = n + 32
                 while n < script_entry_len - 5:
-                    op = script[n]
-                    n += 1 
-                    # Get the next if statement    
+                    op = script[n] 
+                    n += 1  
+                    # Get the next if statement
                     if op == OpCodes.OP_IF:
                         if ATOMICALS_ENVELOPE_MARKER_BYTES == script[n : n + 5].hex():
                             found_operation_definition = True
                             # Parse to ensure it is in the right format
                             operation_type, payload = parse_operation_from_script(script, n + 5)
-                            # print("parse_protocols_operations_from_witness_array--------------------------------------------")
-                            # print("txinwitness script:",script," script.hex:",script.hex()," len(script):",len(script)
-                            # print("operation_type:",operation_type," payload",payload)
+                            print("parse_protocols_operations_from_witness_array--------------------------------------------")
+                            print("txinwitness script:",script," script.hex:",script.hex()," len(script):",len(script))
+                            print("operation_type:",operation_type," payload",payload)
                             if operation_type != None:
                                 return operation_type, payload
                             break
@@ -1223,7 +1222,7 @@ def parse_protocols_operations_from_witness_array(tx, tx_hash, allow_args_bytes)
             if not is_sanitized_dict_whitelist_only(decoded_object.get('meta', {})) or not is_sanitized_dict_whitelist_only(decoded_object.get('args', {}), allow_args_bytes) or not is_sanitized_dict_whitelist_only(decoded_object.get('ctx', {})) or not is_sanitized_dict_whitelist_only(decoded_object.get('init', {}), True):
                 print(f'parse_protocols_operations_from_witness_array found {op_name} but decoded CBOR payload has an args, meta, ctx, or init that has not permitted data type {tx} {decoded_object}. Skipping tx input...')
                 continue  
-            # print("txinwitness decoded_object:",decoded_object)
+            print("---------------------------------txinwitness decoded_object:",decoded_object)
             # Return immediately at the first successful parse of the payload
             # It doesn't mean that it will be valid when processed, because most operations require the txin_idx=0 
             # Nonetheless we return it here and it can be checked uptstream
