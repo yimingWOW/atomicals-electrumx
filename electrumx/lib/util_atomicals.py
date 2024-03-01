@@ -1182,9 +1182,14 @@ def parse_protocols_operations_from_witness_for_input(txinwitness):
                             found_operation_definition = True
                             # Parse to ensure it is in the right format
                             operation_type, payload = parse_operation_from_script(script, n + 5)
-                            print("parse_protocols_operations_from_witness_array--------------------------------------------")
-                            print("txinwitness script:",script," script.hex:",script.hex()," len(script):",len(script))
-                            print("operation_type:",operation_type," payload",payload)
+                            if operation_type!='dmt':
+                                print("--------------------------------------------parse_protocols_operations_from_witness_array")
+                                print("--------------------------------------------script:",script," script.hex:",script.hex()," len(script):",len(script),n)
+                                print("--------------------------------------------operation_type:",operation_type," payload",payload)
+                                decoded_object = {}
+                                decoded_object = loads(payload) 
+                                print("---------------------------------txinwitness decoded_object:",decoded_object)
+
                             if operation_type != None:
                                 return operation_type, payload
                             break
@@ -1222,7 +1227,6 @@ def parse_protocols_operations_from_witness_array(tx, tx_hash, allow_args_bytes)
             if not is_sanitized_dict_whitelist_only(decoded_object.get('meta', {})) or not is_sanitized_dict_whitelist_only(decoded_object.get('args', {}), allow_args_bytes) or not is_sanitized_dict_whitelist_only(decoded_object.get('ctx', {})) or not is_sanitized_dict_whitelist_only(decoded_object.get('init', {}), True):
                 print(f'parse_protocols_operations_from_witness_array found {op_name} but decoded CBOR payload has an args, meta, ctx, or init that has not permitted data type {tx} {decoded_object}. Skipping tx input...')
                 continue  
-            print("---------------------------------txinwitness decoded_object:",decoded_object)
             # Return immediately at the first successful parse of the payload
             # It doesn't mean that it will be valid when processed, because most operations require the txin_idx=0 
             # Nonetheless we return it here and it can be checked uptstream
