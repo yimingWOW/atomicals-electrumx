@@ -1184,8 +1184,8 @@ def parse_protocols_operations_from_witness_for_input(txinwitness):
                             operation_type, payload = parse_operation_from_script(script, n + 5)
                             if operation_type!='dmt':
                                 print("--------------------------------------------parse_protocols_operations_from_witness_array")
-                                print("--------------------------------------------script:",script," script.hex:",script.hex()," len(script):",len(script),n)
-                                print("--------------------------------------------operation_type:",operation_type," payload",payload)
+                                print("--------------------------------------------script.hex:",script.hex())
+                                # print("--------------------------------------------operation_type:",operation_type," payload",payload)
                                 decoded_object = {}
                                 decoded_object = loads(payload) 
                                 print("---------------------------------txinwitness decoded_object:",decoded_object)
