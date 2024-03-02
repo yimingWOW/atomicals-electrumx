@@ -355,7 +355,7 @@ class MemPool:
                 valid_create_op_type, mint_info = get_mint_info_op_factory(self.coin, tx, tx_hash, operation_found_at_inputs, None, 0, self.logger)
                 if valid_create_op_type:
                     atomical_id = mint_info['id']
-                    self.logger.info(f'atomicals_mint_type={valid_create_op_type}, txid={hash_to_hex_str(tx_hash)}, atomical_id={location_id_bytes_to_compact(atomical_id)}') 
+                    # self.logger.info(f'atomicals_mint_type={valid_create_op_type}, txid={hash_to_hex_str(tx_hash)}, atomical_id={location_id_bytes_to_compact(atomical_id)}') 
                     atomicals_updates_map[atomical_id] = {
                         'atomical_id':  location_id_bytes_to_compact(atomical_id),
                         'atomical_number': -1,
