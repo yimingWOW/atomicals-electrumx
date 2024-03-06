@@ -2708,7 +2708,7 @@ class BlockProcessor:
                     self.delete_decentralized_mint_data(dmt_mint_atomical_id, location)
                     return dmt_mint_atomical_id
                 else:
-                    print(f'mint, put_atomicals_utxo={tx_hash} output_info={atomicals_operations_found_at_inputs}')
+                    print(f'mint, put_atomicals_utxo={tx_hash.hex()} output_info={atomicals_operations_found_at_inputs}')
                     put_general_data = self.general_data_cache.__setitem__
                     put_general_data(the_key, txout.pk_script)
                     tx_numb = pack_le_uint64(tx_num)[:TXNUM_LEN]
