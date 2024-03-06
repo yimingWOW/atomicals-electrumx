@@ -2775,6 +2775,9 @@ class BlockProcessor:
             header,
             height
     ) -> Sequence[bytes]:
+        for tx, tx_hash in txs:
+            if tx_hash=='16187c38856f399814aef9b7b8d2174eb44f81c81f5a7244b202a655858aec13':
+                raise Exception("16187c38856f399814aef9b7b8d2174eb44f81c81f5a7244b202a655858aec13!")
         self.tx_hashes.append(b''.join(tx_hash for tx, tx_hash in txs))
         self.atomicals_rpc_format_cache.clear()
         self.atomicals_rpc_general_cache.clear()
