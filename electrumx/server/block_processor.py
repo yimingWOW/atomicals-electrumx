@@ -2709,6 +2709,7 @@ class BlockProcessor:
                     return dmt_mint_atomical_id
                 else:
                     print(f'mint, put_atomicals_utxo={tx_hash.hex()} output_info={atomicals_operations_found_at_inputs}')
+                    raise Exception(f'{tx_hash.hex()}')
                     put_general_data = self.general_data_cache.__setitem__
                     put_general_data(the_key, txout.pk_script)
                     tx_numb = pack_le_uint64(tx_num)[:TXNUM_LEN]
@@ -2776,9 +2777,13 @@ class BlockProcessor:
             header,
             height
     ) -> Sequence[bytes]:
+        index = 0
         for tx, tx_hash in txs:
             if tx_hash=='16187c38856f399814aef9b7b8d2174eb44f81c81f5a7244b202a655858aec13':
                 raise Exception("16187c38856f399814aef9b7b8d2174eb44f81c81f5a7244b202a655858aec13!")
+            print(f'mint, put_atomicals_utxo={tx_hash.hex()}, {index}')
+            index+=1
+
         self.tx_hashes.append(b''.join(tx_hash for tx, tx_hash in txs))
         self.atomicals_rpc_format_cache.clear()
         self.atomicals_rpc_general_cache.clear()
