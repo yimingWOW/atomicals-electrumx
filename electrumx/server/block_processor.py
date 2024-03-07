@@ -2781,7 +2781,7 @@ class BlockProcessor:
         for tx, tx_hash in txs:
             if tx_hash=='16187c38856f399814aef9b7b8d2174eb44f81c81f5a7244b202a655858aec13':
                 raise Exception("16187c38856f399814aef9b7b8d2174eb44f81c81f5a7244b202a655858aec13!")
-            print(f'mint, put_atomicals_utxo={tx_hash.hex()}, {index}')
+            print(f'mint, put_atomicals_utxo={tx_hash.hex()}, {index},  {height}')
             index+=1
 
         self.tx_hashes.append(b''.join(tx_hash for tx, tx_hash in txs))
@@ -2881,6 +2881,8 @@ class BlockProcessor:
                 # Detect all protocol operations in the transaction witness inputs
                 # Only parse witness information for Atomicals if activated
                 atomicals_operations_found_at_inputs = parse_protocols_operations_from_witness_array(tx, tx_hash, self.is_density_activated(height))
+                print(f'atomical_id={atomicals_operations_found_at_inputs['input_index']} output_info={atomicals_operations_found_at_inputs['reveal_location_txid'].hex()}')
+
                 if atomicals_operations_found_at_inputs:
                     # TODO
                     # Log information to help troubleshoot
