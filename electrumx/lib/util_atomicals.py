@@ -1235,6 +1235,7 @@ def parse_protocols_operations_from_witness_array(tx, tx_hash, allow_args_bytes)
             associated_txin = tx.inputs[txin_idx]
             prev_tx_hash = associated_txin.prev_hash
             prev_idx = associated_txin.prev_idx
+            print(f'tx_hash={tx_hash.hex()}, txin_idx={txin_idx}')
             return {
                 'op': op_name,
                 'payload': decoded_object,

@@ -2881,8 +2881,6 @@ class BlockProcessor:
                 # Detect all protocol operations in the transaction witness inputs
                 # Only parse witness information for Atomicals if activated
                 atomicals_operations_found_at_inputs = parse_protocols_operations_from_witness_array(tx, tx_hash, self.is_density_activated(height))
-                print(f'atomical_id={atomicals_operations_found_at_inputs['input_index']}, output_info={atomicals_operations_found_at_inputs['reveal_location_txid'].hex()}')
-
                 if atomicals_operations_found_at_inputs:
                     # TODO
                     # Log information to help troubleshoot
