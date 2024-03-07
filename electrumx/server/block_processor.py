@@ -497,6 +497,7 @@ class BlockProcessor:
         genesis_activation = self.coin.GENESIS_ACTIVATION
 
         for block in blocks:
+            print(f'mint, block.height= {block.height}')
             height += 1
             is_unspendable = (is_unspendable_genesis if height >= genesis_activation
                               else is_unspendable_legacy)
