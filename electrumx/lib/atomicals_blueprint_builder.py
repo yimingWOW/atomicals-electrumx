@@ -456,6 +456,7 @@ class AtomicalsTransferBlueprintBuilder:
 
   @classmethod
   def calculate_nft_output_index_legacy(cls, input_idx, tx, operations_found_at_inputs):
+    print(f'--------------------------------------blinput_idxock= {input_idx}')
     expected_output_index = input_idx
     # If it was unspendable output, then just set it to the 0th location
     # ...and never allow an NFT atomical to be burned accidentally by having insufficient number of outputs either
