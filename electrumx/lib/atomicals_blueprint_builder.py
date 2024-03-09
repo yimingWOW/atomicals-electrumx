@@ -255,6 +255,9 @@ class AtomicalsTransferBlueprintBuilder:
 
   @classmethod
   def calculate_nft_atomicals_regular(cls, nft_map, nft_atomicals, tx, operations_found_at_inputs, sort_fifo):
+    print(f'--------------------------------------nft_map= {nft_map}')
+    print(f'--------------------------------------nft_atomicals= {nft_atomicals}')
+
     # Use a simplified mapping of NFTs using FIFO to the outputs 
     if sort_fifo:
       next_output_idx = 0
@@ -456,7 +459,6 @@ class AtomicalsTransferBlueprintBuilder:
 
   @classmethod
   def calculate_nft_output_index_legacy(cls, input_idx, tx, operations_found_at_inputs):
-    print(f'--------------------------------------blinput_idxock= {input_idx}')
     expected_output_index = input_idx
     # If it was unspendable output, then just set it to the 0th location
     # ...and never allow an NFT atomical to be burned accidentally by having insufficient number of outputs either
