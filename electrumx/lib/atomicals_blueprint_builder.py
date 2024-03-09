@@ -255,9 +255,6 @@ class AtomicalsTransferBlueprintBuilder:
 
   @classmethod
   def calculate_nft_atomicals_regular(cls, nft_map, nft_atomicals, tx, operations_found_at_inputs, sort_fifo):
-    print(f'--------------------------------------nft_map= {nft_map}')
-    print(f'--------------------------------------nft_atomicals= {nft_atomicals}')
-
     # Use a simplified mapping of NFTs using FIFO to the outputs 
     if sort_fifo:
       next_output_idx = 0
@@ -346,6 +343,7 @@ class AtomicalsTransferBlueprintBuilder:
       total_amount_to_skip = 0
       # Uses the compact form of atomical id as the keys for developer convenience
       total_amount_to_skip_potential = operations_found_at_inputs and operations_found_at_inputs.get('payload').get(location_id_bytes_to_compact(atomical_id))
+      print("---------------------------------total_amount_to_skip_potential:",total_amount_to_skip_potential)
       # Sanity check to ensure it is a non-negative integer
       if isinstance(total_amount_to_skip_potential, int) and total_amount_to_skip_potential >= 0:
         total_amount_to_skip = total_amount_to_skip_potential
