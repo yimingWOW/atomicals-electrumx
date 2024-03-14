@@ -435,9 +435,9 @@ def get_mint_info_op_factory(coin, tx, tx_hash, op_found_struct, atomicals_spent
         hashX = script_hashX(txout.pk_script)
         output_idx_le = pack_le_uint32(expected_output_index) 
         atomical_id = commit_txid + pack_le_uint32(commit_index)
-        logger.info(f'-------commit_txid {commit_txid} commit_index {commit_index} {pack_le_uint32(commit_index)} atomical_id {atomical_id}')
+        logger.info(f'-------commit_txid {commit_txid.hex()} commit_index {commit_index} {pack_le_uint32(commit_index)} atomical_id {atomical_id.hex()}')
         location = reveal_location_txid + pack_le_uint32(reveal_location_index)
-        logger.info(f'-------reveal_location_txid {reveal_location_txid} reveal_location_index {reveal_location_index} {pack_le_uint32(reveal_location_index)} location {location}')
+        logger.info(f'-------reveal_location_txid {reveal_location_txid.hex()} reveal_location_index {reveal_location_index} {pack_le_uint32(reveal_location_index)} location {location.hex()}')
         value_sats = pack_le_uint64(txout.value)
         # Create the general mint information
         encoder = krock32.Encoder(checksum=False)
