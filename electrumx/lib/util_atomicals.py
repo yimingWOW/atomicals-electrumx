@@ -549,6 +549,7 @@ def get_mint_info_op_factory(coin, tx, tx_hash, op_found_struct, atomicals_spent
     # Enforce that parents must be included
     parents_enforced = mint_info['args'].get('parents')
     if parents_enforced:
+        print(f'--------------------------------------------Ignoring mint due to multiple requested name types {op_found_struct}')
         logger.debug(f'parents_enforced true {parents_enforced} {tx_hash}')
         if not isinstance(parents_enforced, dict):
             logger.warning(f'Ignoring operation due to invalid parent dict')
