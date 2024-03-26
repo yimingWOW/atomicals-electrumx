@@ -2916,7 +2916,6 @@ class BlockProcessor:
                     has_at_least_one_valid_atomicals_operation = True
                     # Double hash the atomical_id_of_distmint to add it to the history to leverage the existing history db for all operations involving the atomical
                     append_hashX(double_sha256(atomical_id_of_distmint))
-                    self.logger.debug(f'advance_txs: create_or_delete_decentralized_mint_output:atomical_id_of_distmint - atomical_id={atomical_id_of_distmint.hex()}, tx_hash={hash_to_hex_str(tx_hash)}')
                     
                     if dft_count % 100 == 0:
                         self.logger.info(f'height={height}, dft_count={dft_count}')
